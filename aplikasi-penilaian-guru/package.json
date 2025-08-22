@@ -1,0 +1,29 @@
+{
+  "name": "aplikasi-penilaian-guru",
+  "version": "1.0.0",
+  "description": "Aplikasi penilaian guru SD yang sederhana dan praktis",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "cd backend && npm install && npm start",
+    "dev": "cd backend && npm install && npm run dev",
+    "install-backend": "cd backend && npm install",
+    "setup": "npm run install-backend && npm start"
+  },
+  "keywords": [
+    "education",
+    "grading",
+    "school",
+    "teacher",
+    "student",
+    "assessment"
+  ],
+  "author": "Fikri",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "."
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
