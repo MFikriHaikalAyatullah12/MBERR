@@ -4,6 +4,76 @@ const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Cleanup duplicate subjects (admin function)
+router.post('/subjects/cleanup', authenticateToken, (req, res) => {
+    db.serialize(() => {
+        // Remove duplicates
+        db.run(`DELETE FROM subjects 
+                WHERE id NOT IN (
+                    SELECT MIN(id) 
+                    FROM subjects 
+                    GROUP BY name, class_id
+                )`, (err) => {
+            if (err) {
+                console.error('Error cleaning subjects:', err);
+                return res.status(500).json({ error: 'Failed to cleanup subjects' });
+            }
+            
+            res.json({ message: 'Duplicate subjects cleaned up successfully' });
+        });
+    });
+});
+
+// Get tasks grouped by subject for grading interface
+router.get('/tasks-by-subject', authenticateToken, (req, res) => {
+    const classId = req.user.class_id;
+    
+    const query = `
+        SELECT 
+            s.id as subject_id,
+            s.name as subject_name,
+            t.id as task_id,
+            t.name as task_name,
+            t.description as task_description,
+            t.due_date
+        FROM subjects s
+        LEFT JOIN tasks t ON s.id = t.subject_id AND t.class_id = ?
+        WHERE s.class_id = ?
+        ORDER BY s.name, t.created_at DESC
+    `;
+    
+    db.all(query, [classId, classId], (err, rows) => {
+        if (err) {
+            console.error('Database error:', err);
+            return res.status(500).json({ error: 'Database error' });
+        }
+        
+        // Group tasks by subject
+        const subjectsTasks = {};
+        
+        rows.forEach(row => {
+            if (!subjectsTasks[row.subject_id]) {
+                subjectsTasks[row.subject_id] = {
+                    subject_id: row.subject_id,
+                    subject_name: row.subject_name,
+                    tasks: []
+                };
+            }
+            
+            if (row.task_id) {
+                subjectsTasks[row.subject_id].tasks.push({
+                    id: row.task_id,
+                    name: row.task_name,
+                    description: row.task_description,
+                    due_date: row.due_date
+                });
+            }
+        });
+        
+        res.json(Object.values(subjectsTasks));
+    });
+});
+
 // Get all subjects for teacher's class
 router.get('/subjects', authenticateToken, (req, res) => {
     const classId = req.user.class_id;

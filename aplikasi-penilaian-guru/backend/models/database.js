@@ -101,7 +101,7 @@ function initializeDatabase() {
             (5, 'Kelas 5', 'Kelas 5 SD'),
             (6, 'Kelas 6', 'Kelas 6 SD')`);
 
-        // Insert mata pelajaran per kelas
+        // Insert mata pelajaran per kelas dengan unique constraint
         // Kelas 1-3 (sama)
         const subjects123 = [
             'Bahasa Indonesia', 'Matematika', 'Pendidikan Pancasila', 
@@ -117,16 +117,26 @@ function initializeDatabase() {
         // Insert subjects untuk kelas 1-3
         for (let classId = 1; classId <= 3; classId++) {
             subjects123.forEach((subject, index) => {
-                db.run(`INSERT OR IGNORE INTO subjects (name, class_id, is_custom) VALUES (?, ?, 0)`, 
-                    [subject, classId]);
+                db.run(`INSERT OR REPLACE INTO subjects (name, class_id, is_custom) 
+                        SELECT ?, ?, 0 
+                        WHERE NOT EXISTS (
+                            SELECT 1 FROM subjects 
+                            WHERE name = ? AND class_id = ?
+                        )`, 
+                    [subject, classId, subject, classId]);
             });
         }
 
         // Insert subjects untuk kelas 4-6
         for (let classId = 4; classId <= 6; classId++) {
             subjects456.forEach((subject, index) => {
-                db.run(`INSERT OR IGNORE INTO subjects (name, class_id, is_custom) VALUES (?, ?, 0)`, 
-                    [subject, classId]);
+                db.run(`INSERT OR REPLACE INTO subjects (name, class_id, is_custom) 
+                        SELECT ?, ?, 0 
+                        WHERE NOT EXISTS (
+                            SELECT 1 FROM subjects 
+                            WHERE name = ? AND class_id = ?
+                        )`, 
+                    [subject, classId, subject, classId]);
             });
         }
     });

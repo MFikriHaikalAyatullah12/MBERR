@@ -29,31 +29,23 @@ router.post('/register', async (req, res) => {
                 return res.status(400).json({ error: 'Username already exists' });
             }
 
-            // Check if class is already assigned
-            db.get('SELECT id FROM users WHERE class_id = ?', [class_id], async (err, classRow) => {
-                if (err) {
-                    return res.status(500).json({ error: 'Database error' });
-                }
+            // Allow multiple teachers per class - remove class assignment check
+            // This allows multiple teachers to be assigned to the same class
+            
+            // Hash password with environment rounds
+            const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
-                if (classRow) {
-                    return res.status(400).json({ error: 'Class already assigned to another teacher' });
-                }
-
-                // Hash password with environment rounds
-                const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
-
-                // Insert user
-                db.run('INSERT INTO users (username, password, name, class_id) VALUES (?, ?, ?, ?)',
-                    [username, hashedPassword, name, class_id],
-                    function(err) {
-                        if (err) {
-                            return res.status(500).json({ error: 'Failed to create user' });
-                        }
-
-                        res.status(201).json({ message: 'User created successfully', userId: this.lastID });
+            // Insert user
+            db.run('INSERT INTO users (username, password, name, class_id) VALUES (?, ?, ?, ?)',
+                [username, hashedPassword, name, class_id],
+                function(err) {
+                    if (err) {
+                        return res.status(500).json({ error: 'Failed to create user' });
                     }
-                );
-            });
+
+                    res.status(201).json({ message: 'User created successfully', userId: this.lastID });
+                }
+            );
         });
     } catch (error) {
         res.status(500).json({ error: 'Server error' });
@@ -107,12 +99,9 @@ router.post('/login', (req, res) => {
     }
 });
 
-// Get available classes
+// Get available classes - show all classes regardless of assignment
 router.get('/classes', (req, res) => {
-    db.all(`SELECT c.*, 
-            CASE WHEN u.id IS NOT NULL THEN 1 ELSE 0 END AS is_assigned
-            FROM classes c 
-            LEFT JOIN users u ON c.id = u.class_id`,
+    db.all(`SELECT id, name, description FROM classes ORDER BY id`,
         (err, classes) => {
             if (err) {
                 return res.status(500).json({ error: 'Database error' });

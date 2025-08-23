@@ -61,65 +61,127 @@ router.get('/excel', authenticateToken, (req, res) => {
                 }
 
                 try {
-                    // Transform data for Excel
-                    const students = {};
-                    const subjects = new Set();
+                    // Group data by subject
+                    const subjectData = {};
+                    const allStudents = new Set();
 
+                    // Collect all students and group data by subject
                     data.forEach(row => {
-                        if (!students[row.student_name]) {
-                            students[row.student_name] = {
-                                'Nama Siswa': row.student_name,
-                                'NIS': row.nis || '-'
-                            };
-                        }
-
+                        allStudents.add(row.student_name);
+                        
                         if (row.subject_name && row.grade_value !== null) {
-                            const gradeKey = row.grade_type === 'task' 
-                                ? `${row.subject_name} - ${row.task_name || 'Tugas'}`
-                                : `${row.subject_name} - Nilai Akhir`;
+                            if (!subjectData[row.subject_name]) {
+                                subjectData[row.subject_name] = {};
+                            }
                             
-                            students[row.student_name][gradeKey] = row.grade_value;
-                            subjects.add(gradeKey);
+                            if (!subjectData[row.subject_name][row.student_name]) {
+                                subjectData[row.subject_name][row.student_name] = {
+                                    'Nama Siswa': row.student_name,
+                                    'NIS': row.nis || '-'
+                                };
+                            }
+                            
+                            // Add grades based on type
+                            if (row.grade_type === 'task') {
+                                const taskKey = row.task_name || 'Tugas';
+                                subjectData[row.subject_name][row.student_name][taskKey] = row.grade_value;
+                            } else {
+                                subjectData[row.subject_name][row.student_name]['Nilai Akhir'] = row.grade_value;
+                            }
                         }
                     });
 
-                    // Convert to array for Excel
-                    const excelData = Object.values(students);
+                    // Create workbook
+                    const workbook = XLSX.utils.book_new();
 
-                    if (excelData.length === 0) {
-                        excelData.push({
+                    // Create summary sheet with all subjects (final grades only)
+                    const summaryData = [];
+                    Array.from(allStudents).forEach(studentName => {
+                        const studentRow = {
+                            'Nama Siswa': studentName,
+                            'NIS': '-' // Will be filled from first subject data
+                        };
+
+                        // Add final grades for each subject
+                        Object.keys(subjectData).forEach(subjectName => {
+                            const studentData = subjectData[subjectName][studentName];
+                            if (studentData) {
+                                if (studentRow['NIS'] === '-') {
+                                    studentRow['NIS'] = studentData['NIS'];
+                                }
+                                studentRow[subjectName] = studentData['Nilai Akhir'] || '-';
+                            } else {
+                                studentRow[subjectName] = '-';
+                            }
+                        });
+
+                        summaryData.push(studentRow);
+                    });
+
+                    if (summaryData.length === 0) {
+                        summaryData.push({
                             'Nama Siswa': 'Belum ada data',
                             'NIS': '-'
                         });
                     }
 
-                    // Create workbook
-                    const workbook = XLSX.utils.book_new();
-                    const worksheet = XLSX.utils.json_to_sheet(excelData);
-
-                    // Set column widths
-                    const colWidths = [
+                    // Create summary worksheet
+                    const summaryWorksheet = XLSX.utils.json_to_sheet(summaryData);
+                    const summaryColCount = Object.keys(summaryData[0] || {}).length;
+                    const summaryColWidths = [
                         { wch: 25 }, // Nama Siswa
                         { wch: 15 }, // NIS
                     ];
 
-                    // Add subject columns
-                    subjects.forEach(() => {
-                        colWidths.push({ wch: 15 });
+                    for (let i = 2; i < summaryColCount; i++) {
+                        summaryColWidths.push({ wch: 15 });
+                    }
+
+                    summaryWorksheet['!cols'] = summaryColWidths;
+                    
+                    // Add summary sheet first
+                    XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Ringkasan Nilai');
+
+                    // Create sheet for each subject with detailed grades
+                    Object.keys(subjectData).forEach(subjectName => {
+                        const students = subjectData[subjectName];
+                        const excelData = Object.values(students);
+
+                        if (excelData.length === 0) {
+                            excelData.push({
+                                'Nama Siswa': 'Belum ada data',
+                                'NIS': '-'
+                            });
+                        }
+
+                        // Create worksheet for this subject
+                        const worksheet = XLSX.utils.json_to_sheet(excelData);
+
+                        // Set column widths
+                        const colCount = Object.keys(excelData[0] || {}).length;
+                        const colWidths = [
+                            { wch: 25 }, // Nama Siswa
+                            { wch: 15 }, // NIS
+                        ];
+
+                        // Add dynamic width for grade columns
+                        for (let i = 2; i < colCount; i++) {
+                            colWidths.push({ wch: 15 });
+                        }
+
+                        worksheet['!cols'] = colWidths;
+
+                        // Clean subject name for sheet name (remove invalid characters)
+                        const cleanSubjectName = cleanExcelName(subjectName);
+                        XLSX.utils.book_append_sheet(workbook, worksheet, cleanSubjectName);
                     });
-
-                    worksheet['!cols'] = colWidths;
-
-                    // Add worksheet to workbook
-                    const className = cleanExcelName(classInfo ? classInfo.name : 'Unknown');
-                    const sheetName = cleanExcelName(`${className}_${semester ? `Sem${semester}_` : ''}${academic_year || new Date().getFullYear()}`);
-                    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
 
                     // Generate buffer
                     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 
                     // Set headers for download
-                    const filename = cleanExcelName(`Nilai_${sheetName}_${new Date().toISOString().slice(0,10)}`) + '.xlsx';
+                    const className = cleanExcelName(classInfo ? classInfo.name : 'Unknown');
+                    const filename = cleanExcelName(`Nilai_Per_Mapel_${className}_${semester ? `Sem${semester}_` : ''}${academic_year || new Date().getFullYear()}_${new Date().toISOString().slice(0,10)}`) + '.xlsx';
                     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
                     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
                     res.setHeader('Content-Length', buffer.length);
