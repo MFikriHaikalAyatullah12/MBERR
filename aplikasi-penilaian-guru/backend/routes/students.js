@@ -26,22 +26,55 @@ router.post('/', authenticateToken, (req, res) => {
         return res.status(400).json({ error: 'Student name is required' });
     }
 
-    // Check if NIS already exists (if provided)
-    if (nis) {
-        db.get('SELECT id FROM students WHERE nis = ?', [nis], (err, existingStudent) => {
-            if (err) {
-                return res.status(500).json({ error: 'Database error' });
-            }
-            
-            if (existingStudent) {
-                return res.status(400).json({ error: 'NIS already exists' });
-            }
-            
-            insertStudent();
-        });
-    } else {
-        insertStudent();
-    }
+    // Check if student name already exists in the same class
+    db.get('SELECT id FROM students WHERE name = ? AND class_id = ?', [name, classId], (err, existingInClass) => {
+        if (err) {
+            return res.status(500).json({ error: 'Database error' });
+        }
+        
+        if (existingInClass) {
+            return res.status(400).json({ error: 'Nama siswa sudah ada di kelas ini' });
+        }
+
+        // Check if NIS already exists (if provided)
+        if (nis) {
+            db.get('SELECT id FROM students WHERE nis = ?', [nis], (err, existingNIS) => {
+                if (err) {
+                    return res.status(500).json({ error: 'Database error' });
+                }
+                
+                if (existingNIS) {
+                    return res.status(400).json({ error: 'NIS sudah digunakan' });
+                }
+                
+                // Check if student name exists in other classes - if yes, NIS is required
+                db.get('SELECT id FROM students WHERE name = ? AND class_id != ?', [name, classId], (err, existingInOtherClass) => {
+                    if (err) {
+                        return res.status(500).json({ error: 'Database error' });
+                    }
+                    
+                    if (existingInOtherClass && !nis) {
+                        return res.status(400).json({ error: 'Nama siswa sudah ada di kelas lain. NIS harus diisi untuk membedakan siswa.' });
+                    }
+                    
+                    insertStudent();
+                });
+            });
+        } else {
+            // Check if student name exists in other classes - if yes, NIS is required
+            db.get('SELECT id FROM students WHERE name = ? AND class_id != ?', [name, classId], (err, existingInOtherClass) => {
+                if (err) {
+                    return res.status(500).json({ error: 'Database error' });
+                }
+                
+                if (existingInOtherClass) {
+                    return res.status(400).json({ error: 'Nama siswa sudah ada di kelas lain. NIS harus diisi untuk membedakan siswa.' });
+                }
+                
+                insertStudent();
+            });
+        }
+    });
 
     function insertStudent() {
         db.run('INSERT INTO students (name, nis, class_id) VALUES (?, ?, ?)',
@@ -81,22 +114,62 @@ router.put('/:id', authenticateToken, (req, res) => {
                 return res.status(404).json({ error: 'Student not found or access denied' });
             }
 
-            // Check if NIS already exists for other students
-            if (nis && nis !== student.nis) {
-                db.get('SELECT id FROM students WHERE nis = ? AND id != ?', 
-                    [nis, studentId], (err, existingStudent) => {
+            // Check if student name already exists in the same class (excluding current student)
+            if (name !== student.name) {
+                db.get('SELECT id FROM students WHERE name = ? AND class_id = ? AND id != ?', 
+                    [name, classId, studentId], (err, existingInClass) => {
                         if (err) {
                             return res.status(500).json({ error: 'Database error' });
                         }
                         
-                        if (existingStudent) {
-                            return res.status(400).json({ error: 'NIS already exists' });
+                        if (existingInClass) {
+                            return res.status(400).json({ error: 'Nama siswa sudah ada di kelas ini' });
                         }
                         
-                        updateStudent();
+                        checkNISAndOtherClass();
                     });
             } else {
-                updateStudent();
+                checkNISAndOtherClass();
+            }
+
+            function checkNISAndOtherClass() {
+                // Check if NIS already exists for other students
+                if (nis && nis !== student.nis) {
+                    db.get('SELECT id FROM students WHERE nis = ? AND id != ?', 
+                        [nis, studentId], (err, existingNIS) => {
+                            if (err) {
+                                return res.status(500).json({ error: 'Database error' });
+                            }
+                            
+                            if (existingNIS) {
+                                return res.status(400).json({ error: 'NIS sudah digunakan' });
+                            }
+                            
+                            checkNameInOtherClass();
+                        });
+                } else {
+                    checkNameInOtherClass();
+                }
+            }
+
+            function checkNameInOtherClass() {
+                // Check if student name exists in other classes
+                if (name !== student.name) {
+                    db.get('SELECT id FROM students WHERE name = ? AND class_id != ? AND id != ?', 
+                        [name, classId, studentId], (err, existingInOtherClass) => {
+                            if (err) {
+                                return res.status(500).json({ error: 'Database error' });
+                            }
+                            
+                            if (existingInOtherClass && !nis) {
+                                return res.status(400).json({ error: 'Nama siswa sudah ada di kelas lain. NIS harus diisi untuk membedakan siswa.' });
+                            }
+                            
+                            updateStudent();
+                        });
+                } else {
+                    updateStudent();
+                }
             }
 
             function updateStudent() {
