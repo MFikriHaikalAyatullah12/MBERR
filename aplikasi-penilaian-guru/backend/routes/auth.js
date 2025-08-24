@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { db } = require('../models/database');
+const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -46,6 +47,35 @@ router.post('/register', async (req, res) => {
                     res.status(201).json({ message: 'User created successfully', userId: this.lastID });
                 }
             );
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Get current user info
+router.get('/me', authenticateToken, (req, res) => {
+    try {
+        const userId = req.user.id;
+        
+        db.get('SELECT id, username, name, class_id FROM users WHERE id = ?', [userId], (err, user) => {
+            if (err) {
+                return res.status(500).json({ error: 'Database error' });
+            }
+            
+            if (!user) {
+                return res.status(404).json({ error: 'User not found' });
+            }
+            
+            res.json({
+                success: true,
+                user: {
+                    id: user.id,
+                    username: user.username,
+                    name: user.name,
+                    class_id: user.class_id
+                }
+            });
         });
     } catch (error) {
         res.status(500).json({ error: 'Server error' });

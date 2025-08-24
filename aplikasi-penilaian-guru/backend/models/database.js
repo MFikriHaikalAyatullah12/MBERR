@@ -92,6 +92,28 @@ function initializeDatabase() {
             FOREIGN KEY (task_id) REFERENCES tasks (id)
         )`);
 
+        // Tabel Sessions untuk mengganti localStorage
+        db.run(`CREATE TABLE IF NOT EXISTS sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            session_token TEXT UNIQUE NOT NULL,
+            expires_at DATETIME NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )`);
+
+        // Tabel User Preferences untuk menyimpan preferensi user
+        db.run(`CREATE TABLE IF NOT EXISTS user_preferences (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            preference_key TEXT NOT NULL,
+            preference_value TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            UNIQUE(user_id, preference_key)
+        )`);
+
         // Insert data kelas default
         db.run(`INSERT OR IGNORE INTO classes (id, name, description) VALUES 
             (1, 'Kelas 1', 'Kelas 1 SD'),

@@ -10,6 +10,7 @@ const studentRoutes = require('./routes/students');
 const gradeRoutes = require('./routes/grades');
 const taskRoutes = require('./routes/tasks');
 const exportRoutes = require('./routes/export');
+// const { router: backupRoutes, startAutoBackup } = require('./routes/backup');
 const { initializeDatabase } = require('./models/database');
 
 const app = express();
@@ -29,6 +30,9 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 // Initialize database
 initializeDatabase();
 
+// Start auto backup system
+// startAutoBackup();
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/classes', classRoutes);
@@ -36,6 +40,7 @@ app.use('/api/students', studentRoutes);
 app.use('/api/grades', gradeRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/export', exportRoutes);
+// app.use('/api/backup', backupRoutes);
 
 // Serve main page
 app.get('/', (req, res) => {
