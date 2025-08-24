@@ -7,13 +7,196 @@ let tasks = [];
 let grades = [];
 let currentGradeTab = 'task';
 
+// Session management with minimal localStorage usage
+const SESSION_KEY = 'app_session';
+const SESSION_TIMEOUT = 12 * 60 * 60 * 1000; // 12 hours
+
+// Memory cache for application data
+const appCache = {
+    students: { data: null, timestamp: null },
+    subjects: { data: null, timestamp: null },
+    tasks: { data: null, timestamp: null },
+    dashboard: { data: null, timestamp: null }
+};
+
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+
 // API Base URL
 const API_BASE = '/api';
 
+// Cache management functions
+function getCachedData(key) {
+    const cached = appCache[key];
+    if (cached && cached.timestamp && 
+        (Date.now() - cached.timestamp) < CACHE_DURATION) {
+        return cached.data;
+    }
+    return null;
+}
+
+function setCachedData(key, data) {
+    appCache[key] = {
+        data: data,
+        timestamp: Date.now()
+    };
+}
+
+function clearCache() {
+    Object.keys(appCache).forEach(key => {
+        appCache[key] = { data: null, timestamp: null };
+    });
+}
+
+// Session management
+function saveSession(userData, authToken) {
+    const sessionData = {
+        user: userData,
+        token: authToken,
+        timestamp: Date.now()
+    };
+    
+    // Store only minimal data in localStorage
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+        token: authToken,
+        timestamp: Date.now(),
+        userId: userData.id
+    }));
+    
+    // Keep full user data in memory
+    currentUser = userData;
+    token = authToken;
+}
+
+function getStoredSession() {
+    try {
+        const stored = localStorage.getItem(SESSION_KEY);
+        if (!stored) return null;
+        
+        const session = JSON.parse(stored);
+        const now = Date.now();
+        
+        // Check if session expired
+        if (now - session.timestamp > SESSION_TIMEOUT) {
+            clearSession();
+            return null;
+        }
+        
+        return session;
+    } catch (error) {
+        console.error('Error reading session:', error);
+        clearSession();
+        return null;
+    }
+}
+
+function clearSession() {
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem('token'); // Remove old token format
+    localStorage.removeItem('app_session'); // Remove old session format
+    
+    currentUser = null;
+    token = null;
+    clearCache();
+}
+
+// Token validation
+async function validateToken() {
+    try {
+        const response = await fetch(`${API_BASE}/auth/me`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            currentUser = data.user;
+            showDashboardPage();
+        } else {
+            // Token expired or invalid
+            clearSession();
+            showLoginPage();
+        }
+    } catch (error) {
+        console.error('Token validation error:', error);
+        logout();
+    }
+}
+
+// Password validation functions
+function validatePassword(password) {
+    const minLength = 8;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumbers = /\d/.test(password);
+    // Removed special character requirement
+    
+    const requirements = {
+        length: password.length >= minLength,
+        upperCase: hasUpperCase,
+        lowerCase: hasLowerCase,
+        numbers: hasNumbers
+    };
+    
+    const isValid = Object.values(requirements).every(req => req);
+    
+    return {
+        isValid,
+        requirements,
+        score: Object.values(requirements).filter(req => req).length
+    };
+}
+
+function showPasswordStrength(password, elementId) {
+    const validation = validatePassword(password);
+    const strengthElement = document.getElementById(elementId);
+    
+    if (!strengthElement) return;
+    
+    const strengthTexts = {
+        0: { text: 'Sangat Lemah', class: 'very-weak' },
+        1: { text: 'Lemah', class: 'weak' },
+        2: { text: 'Sedang', class: 'fair' },
+        3: { text: 'Baik', class: 'good' },
+        4: { text: 'Kuat', class: 'strong' }
+    };
+    
+    const strength = strengthTexts[validation.score];
+    
+    strengthElement.innerHTML = `
+        <div class="password-strength ${strength.class}">
+            <div class="strength-bar">
+                <div class="strength-fill" style="width: ${(validation.score / 4) * 100}%"></div>
+            </div>
+            <span class="strength-text">${strength.text}</span>
+        </div>
+        <div class="password-requirements">
+            <div class="req ${validation.requirements.length ? 'met' : ''}">
+                <i class="fas ${validation.requirements.length ? 'fa-check' : 'fa-times'}"></i>
+                Minimal 8 karakter
+            </div>
+            <div class="req ${validation.requirements.upperCase ? 'met' : ''}">
+                <i class="fas ${validation.requirements.upperCase ? 'fa-check' : 'fa-times'}"></i>
+                Huruf besar (A-Z)
+            </div>
+            <div class="req ${validation.requirements.lowerCase ? 'met' : ''}">
+                <i class="fas ${validation.requirements.lowerCase ? 'fa-check' : 'fa-times'}"></i>
+                Huruf kecil (a-z)
+            </div>
+            <div class="req ${validation.requirements.numbers ? 'met' : ''}">
+                <i class="fas ${validation.requirements.numbers ? 'fa-check' : 'fa-times'}"></i>
+                Angka (0-9)
+            </div>
+        </div>
+    `;
+}
+
 // Initialize app
 document.addEventListener('DOMContentLoaded', function() {
-    // Check if user is logged in
-    if (token) {
+    // Check if user has valid session
+    const session = getStoredSession();
+    if (session && session.token) {
+        token = session.token;
         validateToken();
     } else {
         showLoginPage();
@@ -29,15 +212,28 @@ document.addEventListener('DOMContentLoaded', function() {
             taskGradeSubject.addEventListener('change', loadTasksForSubject);
         }
     }, 1000);
+    
+    // Set up periodic session validation
+    setInterval(() => {
+        if (token && currentUser) {
+            validateToken();
+        }
+    }, 30 * 60 * 1000); // Check every 30 minutes
 });
 
 // Authentication Functions
 async function handleLogin(event) {
     event.preventDefault();
-    showLoading();
     
-    const username = document.getElementById('loginUsername').value;
+    const username = document.getElementById('loginUsername').value.trim();
     const password = document.getElementById('loginPassword').value;
+    
+    if (!username || !password) {
+        showNotification('Username dan password harus diisi', 'error');
+        return;
+    }
+    
+    showLoading();
     
     try {
         const response = await fetch(`${API_BASE}/auth/login`, {
@@ -51,13 +247,17 @@ async function handleLogin(event) {
         const data = await response.json();
         
         if (response.ok) {
-            token = data.token;
+            // Clear password fields immediately for security
+            document.getElementById('loginPassword').value = '';
+            
+            // Save session securely
+            saveSession(data.user, data.token);
             currentUser = data.user;
-            localStorage.setItem('token', token);
-            localStorage.setItem('user', JSON.stringify(currentUser));
             
             showNotification('Login berhasil!', 'success');
-            showDashboardPage();
+            setTimeout(() => {
+                showDashboardPage();
+            }, 1000);
         } else {
             showNotification(data.error || 'Login gagal', 'error');
         }
@@ -71,12 +271,25 @@ async function handleLogin(event) {
 
 async function handleRegister(event) {
     event.preventDefault();
-    showLoading();
     
-    const name = document.getElementById('registerName').value;
-    const username = document.getElementById('registerUsername').value;
+    const name = document.getElementById('registerName').value.trim();
+    const username = document.getElementById('registerUsername').value.trim();
     const password = document.getElementById('registerPassword').value;
     const class_id = document.getElementById('registerClass').value;
+    
+    // Validate password strength
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+        showNotification('Password tidak memenuhi syarat keamanan. Pastikan password minimal 8 karakter dengan kombinasi huruf besar, huruf kecil, angka, dan karakter khusus.', 'error');
+        return;
+    }
+    
+    if (!name || !username || !password || !class_id) {
+        showNotification('Semua field harus diisi', 'error');
+        return;
+    }
+    
+    showLoading();
     
     try {
         const response = await fetch(`${API_BASE}/auth/register`, {
@@ -90,13 +303,18 @@ async function handleRegister(event) {
         const data = await response.json();
         
         if (response.ok) {
-            showNotification('Registrasi berhasil! Silakan login.', 'success');
-            showLoginForm();
-            // Clear form
-            document.getElementById('registerName').value = '';
-            document.getElementById('registerUsername').value = '';
+            // Clear password field immediately for security
             document.getElementById('registerPassword').value = '';
-            document.getElementById('registerClass').value = '';
+            document.getElementById('passwordStrength').innerHTML = '';
+            
+            showNotification('Registrasi berhasil! Silakan login dengan akun Anda.', 'success');
+            setTimeout(() => {
+                showLoginForm();
+                // Clear other form fields
+                document.getElementById('registerName').value = '';
+                document.getElementById('registerUsername').value = '';
+                document.getElementById('registerClass').value = '';
+            }, 1500);
         } else {
             showNotification(data.error || 'Registrasi gagal', 'error');
         }
@@ -117,21 +335,37 @@ async function validateToken() {
         });
         
         if (response.ok) {
-            currentUser = JSON.parse(localStorage.getItem('user'));
+            // If we don't have currentUser data, fetch it
+            if (!currentUser) {
+                const userResponse = await fetch(`${API_BASE}/auth/me`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (userResponse.ok) {
+                    const userData = await userResponse.json();
+                    currentUser = userData.user;
+                }
+            }
+            
             showDashboardPage();
         } else {
             logout();
         }
     } catch (error) {
+        console.error('Token validation error:', error);
         logout();
     }
 }
 
 function logout() {
-    token = null;
-    currentUser = null;
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    // Clear session data
+    clearSession();
+    
+    // Clear application cache
+    clearCache();
+    
     showLoginPage();
     showNotification('Anda telah keluar', 'success');
 }
@@ -199,6 +433,7 @@ function showGrades() {
     setActiveContent('gradesContent');
     loadGrades();
     loadGradeFormData();
+    loadTasksBySubject(); // Load tasks grouped by subject
 }
 
 function showReports() {
@@ -239,13 +474,12 @@ async function loadAvailableClasses() {
         const select = document.getElementById('registerClass');
         select.innerHTML = '<option value="">Pilih Kelas</option>';
         
+        // Show all classes regardless of assignment status
         classes.forEach(cls => {
-            if (!cls.is_assigned) {
-                const option = document.createElement('option');
-                option.value = cls.id;
-                option.textContent = cls.name;
-                select.appendChild(option);
-            }
+            const option = document.createElement('option');
+            option.value = cls.id;
+            option.textContent = cls.name;
+            select.appendChild(option);
         });
     } catch (error) {
         console.error('Error loading classes:', error);
@@ -254,45 +488,79 @@ async function loadAvailableClasses() {
 
 async function loadDashboardData() {
     try {
+        // Check cache first
+        const cachedData = getCachedData('dashboard');
+        if (cachedData) {
+            updateDashboardUI(cachedData);
+            return;
+        }
+        
         // Load class info
         const classResponse = await fetch(`${API_BASE}/classes/my-class`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const classData = await classResponse.json();
-        document.getElementById('className').textContent = classData.name;
         
         // Load stats
         const statsResponse = await fetch(`${API_BASE}/classes/my-class/stats`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const statsData = await statsResponse.json();
-        document.getElementById('totalStudents').textContent = statsData.student_count;
         
         // Load tasks count
         const tasksResponse = await fetch(`${API_BASE}/tasks`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const tasksData = await tasksResponse.json();
-        document.getElementById('totalTasks').textContent = tasksData.length;
         
         // Load subjects count
         const subjectsResponse = await fetch(`${API_BASE}/grades/subjects`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const subjectsData = await subjectsResponse.json();
-        document.getElementById('totalSubjects').textContent = subjectsData.length;
+        
+        const dashboardData = {
+            className: classData.name,
+            totalStudents: statsData.student_count,
+            totalTasks: tasksData.length,
+            totalSubjects: subjectsData.length
+        };
+        
+        // Cache the data
+        setCachedData('dashboard', dashboardData);
+        updateDashboardUI(dashboardData);
         
     } catch (error) {
         console.error('Error loading dashboard data:', error);
+        showNotification('Gagal memuat data dashboard', 'error');
     }
+}
+
+function updateDashboardUI(data) {
+    document.getElementById('className').textContent = data.className;
+    document.getElementById('totalStudents').textContent = data.totalStudents;
+    document.getElementById('totalTasks').textContent = data.totalTasks;
+    document.getElementById('totalSubjects').textContent = data.totalSubjects;
 }
 
 async function loadStudents() {
     try {
+        // Check cache first
+        const cachedStudents = getCachedData('students');
+        if (cachedStudents) {
+            students = cachedStudents;
+            renderStudentsTable();
+            return;
+        }
+        
         const response = await fetch(`${API_BASE}/students`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         students = await response.json();
+        
+        // Cache the data
+        setCachedData('students', students);
+        
         renderStudentsTable();
     } catch (error) {
         console.error('Error loading students:', error);
@@ -384,6 +652,88 @@ async function loadGrades() {
         console.error('Error loading grades:', error);
         showNotification('Gagal memuat data nilai', 'error');
     }
+}
+
+async function loadTasksBySubject() {
+    try {
+        const response = await fetch(`${API_BASE}/grades/tasks-by-subject`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const subjectsTasks = await response.json();
+        renderTasksBySubject(subjectsTasks);
+    } catch (error) {
+        console.error('Error loading tasks by subject:', error);
+        showNotification('Gagal memuat tugas per mata pelajaran', 'error');
+    }
+}
+
+function renderTasksBySubject(subjectsTasks) {
+    const container = document.getElementById('tasksBySubjectContainer');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (subjectsTasks.length === 0) {
+        container.innerHTML = '<p class="text-center">Belum ada mata pelajaran atau tugas</p>';
+        return;
+    }
+    
+    subjectsTasks.forEach(subject => {
+        const subjectCard = document.createElement('div');
+        subjectCard.className = 'subject-card';
+        
+        let tasksHtml = '';
+        if (subject.tasks.length === 0) {
+            tasksHtml = '<p class="no-tasks">Belum ada tugas untuk mata pelajaran ini</p>';
+        } else {
+            tasksHtml = subject.tasks.map(task => `
+                <div class="task-item">
+                    <div class="task-info">
+                        <h5>${task.name}</h5>
+                        ${task.description ? `<p class="task-desc">${task.description}</p>` : ''}
+                        ${task.due_date ? `<p class="task-due">Deadline: ${new Date(task.due_date).toLocaleDateString('id-ID')}</p>` : ''}
+                    </div>
+                    <div class="task-actions">
+                        <button onclick="startGradingTask(${task.id}, '${task.name}', ${subject.subject_id})" class="btn btn-primary">
+                            <i class="fas fa-edit"></i> Beri Nilai
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        subjectCard.innerHTML = `
+            <div class="subject-header">
+                <h4><i class="fas fa-book"></i> ${subject.subject_name}</h4>
+                <span class="task-count">${subject.tasks.length} tugas</span>
+            </div>
+            <div class="tasks-list">
+                ${tasksHtml}
+            </div>
+        `;
+        
+        container.appendChild(subjectCard);
+    });
+}
+
+function startGradingTask(taskId, taskName, subjectId) {
+    // Set form values for task grading
+    document.getElementById('taskGradeSubject').value = subjectId;
+    document.getElementById('taskGradeTask').innerHTML = `<option value="${taskId}">${taskName}</option>`;
+    document.getElementById('taskGradeTask').value = taskId;
+    
+    // Switch to task grading tab
+    showGradeTab('task');
+    
+    // Scroll to form
+    document.getElementById('taskGradeForm').scrollIntoView({ behavior: 'smooth' });
+    
+    showNotification(`Siap memberi nilai untuk tugas: ${taskName}`, 'info');
 }
 
 async function loadGradeFormData() {
@@ -580,8 +930,15 @@ async function handleStudentForm(event) {
     showLoading();
     
     const studentId = document.getElementById('studentId').value;
-    const name = document.getElementById('studentName').value;
-    const nis = document.getElementById('studentNis').value;
+    const name = document.getElementById('studentName').value.trim();
+    const nis = document.getElementById('studentNis').value.trim();
+    
+    // Validasi input
+    if (!name) {
+        showNotification('Nama siswa harus diisi', 'error');
+        hideLoading();
+        return;
+    }
     
     try {
         const method = studentId ? 'PUT' : 'POST';
@@ -593,7 +950,7 @@ async function handleStudentForm(event) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify({ name, nis })
+            body: JSON.stringify({ name, nis: nis || null })
         });
         
         const data = await response.json();
@@ -601,10 +958,27 @@ async function handleStudentForm(event) {
         if (response.ok) {
             showNotification(data.message, 'success');
             closeModal('studentModal');
+            
+            // Clear cache to force refresh
+            appCache.students = { data: null, timestamp: null };
+            appCache.dashboard = { data: null, timestamp: null };
+            
             loadStudents();
             loadDashboardData(); // Update stats
         } else {
-            showNotification(data.error || 'Terjadi kesalahan', 'error');
+            // Tampilkan pesan error yang spesifik
+            let errorMessage = data.error || 'Terjadi kesalahan';
+            
+            // Perbaiki pesan error untuk user yang lebih friendly
+            if (errorMessage.includes('Nama siswa sudah ada di kelas ini')) {
+                errorMessage = 'Nama siswa sudah ada di kelas ini. Silakan gunakan nama yang berbeda.';
+            } else if (errorMessage.includes('NIS sudah digunakan')) {
+                errorMessage = 'NIS sudah digunakan oleh siswa lain. Silakan gunakan NIS yang berbeda.';
+            } else if (errorMessage.includes('Nama siswa sudah ada di kelas lain')) {
+                errorMessage = 'Nama siswa sudah ada di kelas lain. NIS harus diisi untuk membedakan siswa.';
+            }
+            
+            showNotification(errorMessage, 'error');
         }
     } catch (error) {
         showNotification('Terjadi kesalahan koneksi', 'error');
@@ -734,6 +1108,38 @@ function filterGrades() {
 }
 
 // Subject Management
+async function cleanupDuplicateSubjects() {
+    if (!confirm('Apakah Anda yakin ingin membersihkan duplikasi mata pelajaran? Ini akan menghapus mata pelajaran yang duplikat.')) {
+        return;
+    }
+    
+    showLoading();
+    
+    try {
+        const response = await fetch(`${API_BASE}/grades/subjects/cleanup`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showNotification(data.message, 'success');
+            loadSubjects(); // Reload subjects
+        } else {
+            showNotification(data.error || 'Gagal membersihkan duplikasi', 'error');
+        }
+    } catch (error) {
+        showNotification('Terjadi kesalahan koneksi', 'error');
+        console.error('Cleanup subjects error:', error);
+    } finally {
+        hideLoading();
+    }
+}
+
 async function updateSeniSubject() {
     const seniType = document.getElementById('seniType').value;
     

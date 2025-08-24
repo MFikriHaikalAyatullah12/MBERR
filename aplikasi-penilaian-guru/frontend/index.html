@@ -34,15 +34,21 @@
 
             <!-- Login Form -->
             <div id="loginForm" class="auth-form active">
-                <form onsubmit="handleLogin(event)">
+                <form onsubmit="handleLogin(event)" autocomplete="off">
                     <div class="form-group">
                         <label for="loginUsername">Username</label>
-                        <input type="text" id="loginUsername" required>
+                        <input type="text" 
+                               id="loginUsername" 
+                               autocomplete="username" 
+                               required>
                         <i class="fas fa-user"></i>
                     </div>
                     <div class="form-group">
                         <label for="loginPassword">Password</label>
-                        <input type="password" id="loginPassword" required>
+                        <input type="password" 
+                               id="loginPassword" 
+                               autocomplete="current-password"
+                               required>
                         <i class="fas fa-lock"></i>
                     </div>
                     <button type="submit" class="btn btn-primary">
@@ -53,21 +59,38 @@
 
             <!-- Register Form -->
             <div id="registerForm" class="auth-form">
-                <form onsubmit="handleRegister(event)">
+                <form onsubmit="handleRegister(event)" autocomplete="off">
                     <div class="form-group">
                         <label for="registerName">Nama Lengkap</label>
-                        <input type="text" id="registerName" required>
+                        <input type="text" 
+                               id="registerName" 
+                               autocomplete="name" 
+                               required>
                         <i class="fas fa-user"></i>
                     </div>
                     <div class="form-group">
                         <label for="registerUsername">Username</label>
-                        <input type="text" id="registerUsername" required>
+                        <input type="text" 
+                               id="registerUsername" 
+                               autocomplete="username" 
+                               required>
                         <i class="fas fa-user-tag"></i>
                     </div>
                     <div class="form-group">
                         <label for="registerPassword">Password</label>
-                        <input type="password" id="registerPassword" required>
+                        <input type="password" 
+                               id="registerPassword" 
+                               autocomplete="new-password"
+                               minlength="8"
+                               pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d@$!%*?&]{8,}$"
+                               title="Password harus minimal 8 karakter dengan kombinasi huruf besar, huruf kecil, dan angka"
+                               oninput="showPasswordStrength(this.value, 'passwordStrength')"
+                               required>
                         <i class="fas fa-lock"></i>
+                        <div id="passwordStrength" class="password-strength-container"></div>
+                        <small class="form-help">
+                            Password harus minimal 8 karakter: huruf besar, huruf kecil, dan angka
+                        </small>
                     </div>
                     <div class="form-group">
                         <label for="registerClass">Pilih Kelas</label>
@@ -155,8 +178,55 @@
             <main class="content">
                 <!-- Dashboard Content -->
                 <div id="dashboardContent" class="content-section active">
+                    <!-- Welcome Section -->
+                    <div class="welcome-section">
+                        <div class="welcome-header">
+                            <div class="school-logo">
+                                <i class="fas fa-graduation-cap"></i>
+                            </div>
+                            <div class="welcome-text">
+                                <h1>SELAMAT DATANG DI SISTEM PENILAIAN SISWA</h1>
+                                <h2>UPT SD NEGERI 117 INPRES BONTOMANGAPE</h2>
+                            </div>
+                        </div>
+                        
+                        <div class="school-description">
+                            <div class="description-card">
+                                <div class="description-icon">
+                                    <i class="fas fa-school"></i>
+                                </div>
+                                <div class="description-content">
+                                    <h3>Tentang Sekolah Kami</h3>
+                                    <p>UPT SD Negeri 117 Inpres Bontomangape adalah sebuah sekolah dasar yang berlokasi di daerah Bontomangape. Sekolah ini didirikan sebagai bagian dari program Instruksi Presiden (Inpres) untuk meningkatkan akses pendidikan dasar bagi masyarakat Indonesia.</p>
+                                    
+                                    <p>Dengan komitmen untuk memberikan pendidikan berkualitas, sekolah ini menyediakan lingkungan belajar yang kondusif dan mendukung perkembangan akademik serta karakter siswa-siswi. Kami berkomitmen untuk mencerdaskan generasi penerus bangsa melalui pendidikan yang bermutu dan berbasis nilai-nilai Pancasila.</p>
+                                    
+                                    <div class="school-features">
+                                        <div class="feature-item">
+                                            <i class="fas fa-users"></i>
+                                            <span>Tenaga Pendidik Berkualitas</span>
+                                        </div>
+                                        <div class="feature-item">
+                                            <i class="fas fa-book"></i>
+                                            <span>Kurikulum Merdeka</span>
+                                        </div>
+                                        <div class="feature-item">
+                                            <i class="fas fa-heart"></i>
+                                            <span>Pendidikan Karakter</span>
+                                        </div>
+                                        <div class="feature-item">
+                                            <i class="fas fa-trophy"></i>
+                                            <span>Prestasi Akademik</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Statistics Section -->
                     <div class="page-header">
-                        <h2><i class="fas fa-tachometer-alt"></i> Dashboard</h2>
+                        <h2><i class="fas fa-chart-bar"></i> Statistik Sekolah</h2>
                     </div>
                     
                     <div class="stats-grid">
@@ -245,6 +315,9 @@
                 <div id="subjectsContent" class="content-section">
                     <div class="page-header">
                         <h2><i class="fas fa-book"></i> Mata Pelajaran</h2>
+                        <button onclick="cleanupDuplicateSubjects()" class="btn btn-warning">
+                            <i class="fas fa-broom"></i> Bersihkan Duplikasi
+                        </button>
                     </div>
 
                     <div class="subjects-grid">
@@ -356,6 +429,15 @@
 
                     <div class="grade-input-section">
                         <h3>Input Nilai Baru</h3>
+                        
+                        <!-- Tasks by Subject Section -->
+                        <div class="tasks-by-subject-section">
+                            <h4><i class="fas fa-layer-group"></i> Tugas Per Mata Pelajaran</h4>
+                            <div id="tasksBySubjectContainer" class="subjects-tasks-grid">
+                                <!-- Content will be populated by JavaScript -->
+                            </div>
+                        </div>
+                        
                         <div class="grade-tabs">
                             <button class="grade-tab-btn active" onclick="showGradeTab('task')">
                                 <i class="fas fa-tasks"></i> Nilai Tugas
@@ -481,7 +563,7 @@
                                 </tr>
                             </thead>
                             <tbody id="gradesTableBody">
-                                <!-- Grades data will be loaded here -->
+                                 Grades data will be loaded here 
                             </tbody>
                         </table>
                     </div>
@@ -615,8 +697,9 @@
                         <input type="text" id="studentName" required>
                     </div>
                     <div class="form-group">
-                        <label for="studentNis">NIS (Opsional)</label>
-                        <input type="text" id="studentNis">
+                        <label for="studentNis">NIS (Nomor Induk Siswa)</label>
+                        <input type="text" id="studentNis" placeholder="Wajib diisi jika nama siswa sama dengan siswa di kelas lain">
+                        <small class="form-help">NIS wajib diisi jika nama siswa sudah ada di kelas lain untuk membedakan siswa</small>
                     </div>
                 </div>
                 <div class="modal-footer">
