@@ -125,6 +125,33 @@ router.get('/excel', authenticateToken, (req, res) => {
                         });
                     }
 
+                    // Calculate averages for summary sheet
+                    if (summaryData.length > 0 && Object.keys(subjectData).length > 0) {
+                        const avgRow = {
+                            'Nama Siswa': 'RATA-RATA KELAS',
+                            'NIS': '-'
+                        };
+
+                        Object.keys(subjectData).forEach(subjectName => {
+                            const subjectGrades = [];
+                            summaryData.forEach(student => {
+                                const grade = parseFloat(student[subjectName]);
+                                if (!isNaN(grade)) {
+                                    subjectGrades.push(grade);
+                                }
+                            });
+
+                            if (subjectGrades.length > 0) {
+                                const average = subjectGrades.reduce((sum, grade) => sum + grade, 0) / subjectGrades.length;
+                                avgRow[subjectName] = average.toFixed(1);
+                            } else {
+                                avgRow[subjectName] = '-';
+                            }
+                        });
+
+                        summaryData.push(avgRow);
+                    }
+
                     // Create summary worksheet
                     const summaryWorksheet = XLSX.utils.json_to_sheet(summaryData);
                     const summaryColCount = Object.keys(summaryData[0] || {}).length;
@@ -152,6 +179,66 @@ router.get('/excel', authenticateToken, (req, res) => {
                                 'Nama Siswa': 'Belum ada data',
                                 'NIS': '-'
                             });
+                        } else {
+                            // Calculate totals and averages for each student
+                            excelData.forEach(studentData => {
+                                let totalScore = 0;
+                                let taskCount = 0;
+                                let taskScores = [];
+
+                                // Collect all task scores (exclude 'Nama Siswa', 'NIS', and 'Nilai Akhir')
+                                Object.keys(studentData).forEach(key => {
+                                    if (key !== 'Nama Siswa' && key !== 'NIS' && key !== 'Nilai Akhir') {
+                                        const score = parseFloat(studentData[key]);
+                                        if (!isNaN(score)) {
+                                            taskScores.push(score);
+                                            totalScore += score;
+                                            taskCount++;
+                                        }
+                                    }
+                                });
+
+                                // Add calculated fields
+                                studentData['Jumlah Nilai Tugas'] = taskCount > 0 ? totalScore.toFixed(1) : '-';
+                                studentData['Rata-rata Tugas'] = taskCount > 0 ? (totalScore / taskCount).toFixed(1) : '-';
+                                
+                                // Calculate final average including final grade if exists
+                                if (studentData['Nilai Akhir'] && !isNaN(parseFloat(studentData['Nilai Akhir']))) {
+                                    const finalGrade = parseFloat(studentData['Nilai Akhir']);
+                                    const taskAverage = taskCount > 0 ? totalScore / taskCount : 0;
+                                    // Weight: 70% tasks, 30% final
+                                    const finalAverage = taskCount > 0 ? 
+                                        (taskAverage * 0.7 + finalGrade * 0.3) : finalGrade;
+                                    studentData['Nilai Rata-rata Akhir'] = finalAverage.toFixed(1);
+                                } else {
+                                    studentData['Nilai Rata-rata Akhir'] = studentData['Rata-rata Tugas'];
+                                }
+                            });
+
+                            // Add summary row at the end
+                            const summaryRow = {
+                                'Nama Siswa': '=== STATISTIK KELAS ===',
+                                'NIS': ''
+                            };
+
+                            // Calculate class statistics for each column
+                            const firstStudent = excelData[0];
+                            Object.keys(firstStudent).forEach(key => {
+                                if (key !== 'Nama Siswa' && key !== 'NIS') {
+                                    const scores = excelData
+                                        .map(student => parseFloat(student[key]))
+                                        .filter(score => !isNaN(score));
+                                    
+                                    if (scores.length > 0) {
+                                        const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+                                        summaryRow[key] = `Rata: ${average.toFixed(1)}`;
+                                    } else {
+                                        summaryRow[key] = '-';
+                                    }
+                                }
+                            });
+
+                            excelData.push(summaryRow);
                         }
 
                         // Create worksheet for this subject
