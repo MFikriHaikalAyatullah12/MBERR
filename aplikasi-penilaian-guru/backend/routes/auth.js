@@ -140,4 +140,85 @@ router.get('/classes', (req, res) => {
         });
 });
 
+// Delete account and all associated data
+router.delete('/delete-account', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const { password } = req.body;
+
+        if (!password) {
+            return res.status(400).json({ error: 'Password is required for account deletion' });
+        }
+
+        // Verify user exists and password is correct
+        db.get('SELECT * FROM users WHERE id = ?', [userId], async (err, user) => {
+            if (err) {
+                return res.status(500).json({ error: 'Database error' });
+            }
+
+            if (!user) {
+                return res.status(404).json({ error: 'User not found' });
+            }
+
+            const isValidPassword = await bcrypt.compare(password, user.password);
+            if (!isValidPassword) {
+                return res.status(401).json({ error: 'Invalid password' });
+            }
+
+            // Start transaction to delete all user data
+            db.serialize(() => {
+                db.run('BEGIN TRANSACTION');
+
+                try {
+                    // Get user's class_id to delete related data
+                    const classId = user.class_id;
+
+                    // Delete grades for students in user's class
+                    db.run('DELETE FROM grades WHERE student_id IN (SELECT id FROM students WHERE class_id = ?)', [classId]);
+                    
+                    // Delete tasks for user's class
+                    db.run('DELETE FROM tasks WHERE class_id = ?', [classId]);
+                    
+                    // Delete subjects for user's class (custom subjects only)
+                    db.run('DELETE FROM subjects WHERE class_id = ? AND is_custom = 1', [classId]);
+                    
+                    // Delete students in user's class
+                    db.run('DELETE FROM students WHERE class_id = ?', [classId]);
+                    
+                    // Delete user preferences
+                    db.run('DELETE FROM user_preferences WHERE user_id = ?', [userId]);
+                    
+                    // Delete user sessions
+                    db.run('DELETE FROM sessions WHERE user_id = ?', [userId]);
+                    
+                    // Delete the user account
+                    db.run('DELETE FROM users WHERE id = ?', [userId], function(err) {
+                        if (err) {
+                            db.run('ROLLBACK');
+                            return res.status(500).json({ error: 'Failed to delete account' });
+                        }
+
+                        // Delete the class if no other users are assigned to it
+                        db.get('SELECT COUNT(*) as count FROM users WHERE class_id = ?', [classId], (err, result) => {
+                            if (err || result.count === 0) {
+                                db.run('DELETE FROM classes WHERE id = ?', [classId]);
+                            }
+                            
+                            db.run('COMMIT');
+                            res.json({ message: 'Account and all associated data deleted successfully' });
+                        });
+                    });
+
+                } catch (error) {
+                    db.run('ROLLBACK');
+                    res.status(500).json({ error: 'Failed to delete account and data' });
+                }
+            });
+        });
+    } catch (error) {
+        console.error('Delete account error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 module.exports = router;
