@@ -980,7 +980,7 @@ async function loadStudentsForBulkGrading() {
             const gradeValue = '';
             // Show actual status based on database
             const gradeStatus = existingGrade ? 'existing' : 'new';
-            const statusText = existingGrade ? `Nilai tersimpan: ${existingGrade.grade_value}` : 'Belum dinilai';
+            const statusText = existingGrade ? 'Sudah dinilai' : 'Belum dinilai';
             
             return `
                 <div class="student-grade-item">
@@ -1491,7 +1491,7 @@ async function loadGradeFormData() {
         
         // Populate subject selects
         const subjectSelects = [
-            'taskGradeSubject', 'finalGradeSubject', 'subjectFilter', 'bulkGradeSubject'
+            'taskGradeSubject', 'finalGradeSubject', 'subjectFilter', 'bulkGradeSubject', 'bulkFinalGradeSubject'
         ];
         
         subjectSelects.forEach(selectId => {
@@ -1518,6 +1518,50 @@ async function loadGradeFormData() {
     } catch (error) {
         console.error('Error loading grade form data:', error);
     }
+}
+
+// Load subjects for final grading
+function loadSubjectsForFinalGrading() {
+    console.log('Loading subjects for final grading');
+    
+    const select = document.getElementById('bulkFinalGradeSubject');
+    if (!select) {
+        console.log('bulkFinalGradeSubject element not found');
+        return;
+    }
+    
+    select.innerHTML = '<option value="">Pilih Mata Pelajaran</option>';
+    
+    subjects.forEach(subject => {
+        const option = document.createElement('option');
+        option.value = subject.id;
+        option.textContent = subject.name;
+        select.appendChild(option);
+    });
+    
+    console.log(`Final grading subjects loaded: ${subjects.length} subjects`);
+}
+
+// Load subjects for bulk grading (tasks)
+function loadSubjectsForBulkGrading() {
+    console.log('Loading subjects for bulk grading');
+    
+    const select = document.getElementById('bulkGradeSubject');
+    if (!select) {
+        console.log('bulkGradeSubject element not found');
+        return;
+    }
+    
+    select.innerHTML = '<option value="">Pilih Mata Pelajaran</option>';
+    
+    subjects.forEach(subject => {
+        const option = document.createElement('option');
+        option.value = subject.id;
+        option.textContent = subject.name;
+        select.appendChild(option);
+    });
+    
+    console.log(`Bulk grading subjects loaded: ${subjects.length} subjects`);
 }
 
 // Render Functions
@@ -2112,6 +2156,23 @@ function showGradeTab(tabType) {
         tab.classList.remove('active');
     });
     document.getElementById(`${tabType}GradeForm`).classList.add('active');
+    
+    // Load appropriate data based on tab type
+    if (tabType === 'task') {
+        // Load subjects for task grading (already handled in existing code)
+        loadSubjectsForBulkGrading();
+    } else if (tabType === 'final') {
+        // Load subjects for final grading
+        loadSubjectsForFinalGrading();
+        
+        // Reset final grading forms
+        document.getElementById('finalGradeCriteriaForm').style.display = 'block';
+        document.getElementById('bulkStudentsFinalGradingForm').style.display = 'none';
+        
+        // Clear form data
+        document.getElementById('studentsFinalGradingList').innerHTML = '';
+        document.getElementById('finalGradingInfo').innerHTML = '';
+    }
 }
 
 async function loadTasksForSubject() {
@@ -2537,4 +2598,410 @@ async function deleteAccount(event) {
         hideLoading();
         closeModal('deleteAccountModal');
     }
+}
+
+// Final Grade Bulk Functions
+async function loadStudentsForBulkFinalGrading() {
+    const subjectId = document.getElementById('bulkFinalGradeSubject').value;
+    const semester = document.getElementById('bulkFinalGradeSemester').value;
+    const academicYear = document.getElementById('bulkFinalGradeAcademicYear').value;
+    
+    if (!subjectId || !semester || !academicYear) {
+        showNotification('Harap lengkapi semua kriteria terlebih dahulu', 'warning');
+        return;
+    }
+    
+    showLoading();
+    
+    try {
+        // Get subject details
+        const subject = subjects.find(s => s.id == subjectId);
+        
+        if (!subject) {
+            throw new Error('Subject not found');
+        }
+        
+        // Get existing final grades with fresh data
+        const gradesResponse = await fetch(`${API_BASE}/grades?subject_id=${subjectId}&semester=${semester}&academic_year=${academicYear}&grade_type=final&_t=${Date.now()}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            }
+        });
+        
+        if (!gradesResponse.ok) {
+            throw new Error('Failed to get existing final grades');
+        }
+        
+        const existingGrades = await gradesResponse.json();
+        
+        // Show final grading info
+        document.getElementById('finalGradingInfo').innerHTML = `
+            <strong>Mata Pelajaran:</strong> ${subject.name} |
+            <strong>Semester:</strong> ${semester} |
+            <strong>Tahun Akademik:</strong> ${academicYear}
+        `;
+        
+        // Generate students list with clean default values
+        const studentsListHtml = students.map((student, index) => {
+            const existingGrade = existingGrades.find(g => g.student_id == student.id);
+            // Always start with empty value - no pre-filled grades
+            const gradeValue = '';
+            // Show actual status based on database
+            const gradeStatus = existingGrade ? 'existing' : 'new';
+            const statusText = existingGrade ? 'Sudah dinilai' : 'Belum dinilai';
+            
+            return `
+                <div class="student-grade-item">
+                    <div class="student-info">
+                        <div class="student-number">${index + 1}</div>
+                        <div class="student-name">${student.name}</div>
+                        <div class="grade-status ${gradeStatus}">${statusText}</div>
+                    </div>
+                    <div class="grade-input-wrapper">
+                        <input type="number" 
+                               class="grade-input auto-save-final-grade" 
+                               name="final_grade_${student.id}" 
+                               value=""
+                               min="0" 
+                               max="100" 
+                               placeholder="Masukkan nilai 0-100"
+                               data-student-id="${student.id}"
+                               data-student-name="${student.name}"
+                               data-existing-grade="${existingGrade ? existingGrade.grade_value : ''}"
+                               data-saved-grade="${existingGrade ? existingGrade.grade_value : ''}">>
+                        <button type="button" 
+                                class="btn-mini save-individual" 
+                                onclick="saveIndividualFinalGrade(${student.id}, '${student.name.replace(/'/g, "\\'")}')"
+                                title="Simpan nilai untuk ${student.name}">
+                            💾
+                        </button>
+                        <div class="save-status" data-student-id="${student.id}"></div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        document.getElementById('studentsFinalGradingList').innerHTML = studentsListHtml;
+        
+        // Add auto-save event listeners to all final grade inputs
+        setupAutoSaveFinalListeners();
+        
+        // Hide criteria form and show bulk form
+        document.getElementById('finalGradeCriteriaForm').style.display = 'none';
+        document.getElementById('bulkStudentsFinalGradingForm').style.display = 'block';
+        
+        showNotification(`Menampilkan ${students.length} siswa untuk dinilai`, 'success');
+        
+    } catch (error) {
+        showNotification('Terjadi kesalahan saat memuat data siswa', 'error');
+        console.error('Load students for bulk final grading error:', error);
+    } finally {
+        hideLoading();
+    }
+}
+
+// Setup auto-save listeners for final grade inputs
+function setupAutoSaveFinalListeners() {
+    const gradeInputs = document.querySelectorAll('.auto-save-final-grade');
+    
+    gradeInputs.forEach(input => {
+        let saveTimeout;
+        let lastSavedValue = input.value; // Track last saved value
+        
+        // Remove any existing listeners to prevent duplicates
+        input.removeEventListener('input', input.autoSaveInputHandler);
+        input.removeEventListener('blur', input.autoSaveBlurHandler);
+        
+        // Create handler functions
+        input.autoSaveInputHandler = function() {
+            const studentId = this.dataset.studentId;
+            const studentName = this.dataset.studentName;
+            
+            // Clear existing timeout
+            clearTimeout(saveTimeout);
+            
+            // Set new timeout for auto-save
+            saveTimeout = setTimeout(() => {
+                if (this.value !== lastSavedValue && this.value.trim() !== '') {
+                    saveIndividualFinalGrade(studentId, studentName, true);
+                    lastSavedValue = this.value;
+                }
+            }, 2000); // Auto-save after 2 seconds of inactivity
+        };
+        
+        input.autoSaveBlurHandler = function() {
+            // Save immediately on blur if value changed
+            if (this.value !== lastSavedValue && this.value.trim() !== '') {
+                clearTimeout(saveTimeout);
+                saveIndividualFinalGrade(this.dataset.studentId, this.dataset.studentName, true);
+                lastSavedValue = this.value;
+            }
+        };
+        
+        // Add event listeners
+        input.addEventListener('input', input.autoSaveInputHandler);
+        input.addEventListener('blur', input.autoSaveBlurHandler);
+    });
+}
+
+async function saveIndividualFinalGrade(studentId, studentName, isAutoSave = false) {
+    const input = document.querySelector(`input[name="final_grade_${studentId}"]`);
+    const statusDiv = document.querySelector(`div[data-student-id="${studentId}"]`);
+    const gradeValue = input.value.trim();
+    
+    if (!gradeValue) {
+        if (!isAutoSave) {
+            showNotification('Harap masukkan nilai terlebih dahulu', 'warning');
+        }
+        return;
+    }
+    
+    if (parseFloat(gradeValue) < 0 || parseFloat(gradeValue) > 100) {
+        showNotification('Nilai harus antara 0-100', 'warning');
+        return;
+    }
+    
+    const subjectId = document.getElementById('bulkFinalGradeSubject').value;
+    const semester = document.getElementById('bulkFinalGradeSemester').value;
+    const academicYear = document.getElementById('bulkFinalGradeAcademicYear').value;
+    
+    try {
+        // Show saving status
+        if (statusDiv) {
+            statusDiv.innerHTML = '<span style="color: orange;">💾 Menyimpan...</span>';
+        }
+        
+        const response = await fetch(`${API_BASE}/grades`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                student_id: studentId,
+                subject_id: subjectId,
+                grade_value: parseFloat(gradeValue),
+                semester: semester,
+                academic_year: academicYear,
+                grade_type: 'final'
+            })
+        });
+        
+        if (response.ok) {
+            // Update status
+            if (statusDiv) {
+                statusDiv.innerHTML = '<span style="color: green;">✓ Tersimpan</span>';
+                setTimeout(() => {
+                    statusDiv.innerHTML = '';
+                }, 3000);
+            }
+            
+            // Update status text in student info
+            const gradeStatusDiv = input.closest('.student-grade-item').querySelector('.grade-status');
+            if (gradeStatusDiv) {
+                gradeStatusDiv.className = 'grade-status existing';
+                gradeStatusDiv.textContent = 'Sudah dinilai';
+            }
+            
+            // Update data attributes
+            input.dataset.existingGrade = gradeValue;
+            input.dataset.savedGrade = gradeValue;
+            
+            if (!isAutoSave) {
+                showNotification(`Nilai untuk ${studentName} berhasil disimpan`, 'success');
+            }
+        } else {
+            const data = await response.json();
+            throw new Error(data.error || 'Gagal menyimpan nilai');
+        }
+    } catch (error) {
+        if (statusDiv) {
+            statusDiv.innerHTML = '<span style="color: red;">✗ Gagal</span>';
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 3000);
+        }
+        
+        if (!isAutoSave) {
+            showNotification(`Gagal menyimpan nilai untuk ${studentName}: ${error.message}`, 'error');
+        }
+    }
+}
+
+async function handleBulkFinalGrade(event) {
+    event.preventDefault();
+    
+    const inputs = document.querySelectorAll('#studentsFinalGradingList .grade-input');
+    const grades = [];
+    
+    // Collect all grade data
+    inputs.forEach(input => {
+        const value = input.value.trim();
+        if (value) {
+            const studentId = input.dataset.studentId;
+            const gradeValue = parseFloat(value);
+            
+            if (gradeValue >= 0 && gradeValue <= 100) {
+                grades.push({
+                    student_id: studentId,
+                    grade_value: gradeValue
+                });
+            }
+        }
+    });
+    
+    if (grades.length === 0) {
+        showNotification('Harap masukkan minimal satu nilai', 'warning');
+        return;
+    }
+    
+    const subjectId = document.getElementById('bulkFinalGradeSubject').value;
+    const semester = document.getElementById('bulkFinalGradeSemester').value;
+    const academicYear = document.getElementById('bulkFinalGradeAcademicYear').value;
+    
+    showLoading();
+    
+    try {
+        const response = await fetch(`${API_BASE}/grades/bulk`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                grades: grades.map(g => ({
+                    ...g,
+                    subject_id: subjectId,
+                    semester: semester,
+                    academic_year: academicYear,
+                    grade_type: 'final'
+                }))
+            })
+        });
+        
+        if (response.ok) {
+            showNotification(`Berhasil menyimpan ${grades.length} nilai akhir`, 'success');
+            
+            // Update all status indicators
+            grades.forEach(grade => {
+                const gradeStatusDiv = document.querySelector(`input[data-student-id="${grade.student_id}"]`)
+                    ?.closest('.student-grade-item')?.querySelector('.grade-status');
+                if (gradeStatusDiv) {
+                    gradeStatusDiv.className = 'grade-status existing';
+                    gradeStatusDiv.textContent = 'Sudah dinilai';
+                }
+            });
+            
+            // Reload grades data
+            loadGrades();
+        } else {
+            const data = await response.json();
+            throw new Error(data.error || 'Gagal menyimpan nilai');
+        }
+    } catch (error) {
+        showNotification('Terjadi kesalahan saat menyimpan nilai: ' + error.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function loadExistingFinalGrades() {
+    const subjectId = document.getElementById('bulkFinalGradeSubject').value;
+    const semester = document.getElementById('bulkFinalGradeSemester').value;
+    const academicYear = document.getElementById('bulkFinalGradeAcademicYear').value;
+    
+    if (!subjectId || !semester || !academicYear) {
+        showNotification('Kriteria penilaian belum lengkap', 'warning');
+        return;
+    }
+    
+    showLoading();
+    
+    try {
+        const response = await fetch(`${API_BASE}/grades?subject_id=${subjectId}&semester=${semester}&academic_year=${academicYear}&grade_type=final&_t=${Date.now()}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Cache-Control': 'no-cache, no-store, must-revalidate'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Gagal memuat nilai tersimpan');
+        }
+        
+        const existingGrades = await response.json();
+        let loadedCount = 0;
+        
+        // Load existing grades into inputs
+        existingGrades.forEach(grade => {
+            const input = document.querySelector(`input[name="final_grade_${grade.student_id}"]`);
+            if (input) {
+                input.value = grade.grade_value;
+                input.dataset.existingGrade = grade.grade_value;
+                input.dataset.savedGrade = grade.grade_value;
+                loadedCount++;
+                
+                // Update status
+                const gradeStatusDiv = input.closest('.student-grade-item').querySelector('.grade-status');
+                if (gradeStatusDiv) {
+                    gradeStatusDiv.className = 'grade-status existing';
+                    gradeStatusDiv.textContent = 'Sudah dinilai';
+                }
+            }
+        });
+        
+        if (loadedCount > 0) {
+            showNotification(`${loadedCount} nilai tersimpan telah dimuat`, 'success');
+        } else {
+            showNotification('Tidak ada nilai tersimpan untuk dimuat', 'info');
+        }
+        
+    } catch (error) {
+        showNotification('Terjadi kesalahan saat memuat nilai tersimpan', 'error');
+        console.error('Load existing final grades error:', error);
+    } finally {
+        hideLoading();
+    }
+}
+
+function fillAllFinalGrades() {
+    const value = prompt('Masukkan nilai yang akan digunakan untuk semua siswa (0-100):');
+    
+    if (value === null) return; // User cancelled
+    
+    const numValue = parseFloat(value);
+    if (isNaN(numValue) || numValue < 0 || numValue > 100) {
+        showNotification('Nilai harus berupa angka antara 0-100', 'warning');
+        return;
+    }
+    
+    const inputs = document.querySelectorAll('#studentsFinalGradingList .grade-input');
+    inputs.forEach(input => {
+        input.value = numValue;
+    });
+    
+    showNotification(`Semua nilai telah diisi dengan ${numValue}`, 'success');
+}
+
+function clearAllFinalGrades() {
+    if (confirm('Apakah Anda yakin ingin mengosongkan semua nilai?')) {
+        const inputs = document.querySelectorAll('#studentsFinalGradingList .grade-input');
+        inputs.forEach(input => {
+            input.value = '';
+        });
+        showNotification('Semua nilai telah dikosongkan', 'success');
+    }
+}
+
+function cancelBulkFinalGrading() {
+    // Show criteria form and hide bulk form
+    document.getElementById('finalGradeCriteriaForm').style.display = 'block';
+    document.getElementById('bulkStudentsFinalGradingForm').style.display = 'none';
+    
+    // Clear form data
+    document.getElementById('studentsFinalGradingList').innerHTML = '';
+    document.getElementById('finalGradingInfo').innerHTML = '';
 }

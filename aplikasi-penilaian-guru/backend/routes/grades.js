@@ -365,4 +365,133 @@ router.get('/student/:studentId/summary', authenticateToken, (req, res) => {
         });
 });
 
+// Bulk add/update grades
+router.post('/bulk', authenticateToken, (req, res) => {
+    const { grades } = req.body;
+    const classId = req.user.class_id;
+
+    console.log('Bulk grades POST request received:', { grades, classId });
+
+    if (!grades || !Array.isArray(grades) || grades.length === 0) {
+        return res.status(400).json({ error: 'Grades array is required' });
+    }
+
+    // Validate all grades
+    for (const grade of grades) {
+        const { student_id, subject_id, grade_value, semester, academic_year } = grade;
+        
+        if (!student_id || !subject_id || grade_value === undefined || !semester || !academic_year) {
+            return res.status(400).json({ 
+                error: 'Each grade must have: student_id, subject_id, grade_value, semester, academic_year' 
+            });
+        }
+
+        if (grade_value < 0 || grade_value > 100) {
+            return res.status(400).json({ 
+                error: `Grade value ${grade_value} must be between 0 and 100` 
+            });
+        }
+    }
+
+    // Process grades sequentially to avoid database conflicts
+    const processGrade = (index) => {
+        if (index >= grades.length) {
+            return res.json({ 
+                message: `Successfully processed ${grades.length} grades`,
+                processed: grades.length 
+            });
+        }
+
+        const grade = grades[index];
+        const { student_id, subject_id, task_id, grade_value, grade_type, semester, academic_year } = grade;
+        const finalGradeType = grade_type || (task_id ? 'task' : 'final');
+
+        // Verify student belongs to teacher's class
+        db.get('SELECT * FROM students WHERE id = ? AND class_id = ?', 
+            [student_id, classId], (err, student) => {
+                if (err) {
+                    console.error('Database error verifying student:', err);
+                    return res.status(500).json({ error: 'Database error' });
+                }
+                
+                if (!student) {
+                    return res.status(404).json({ 
+                        error: `Student ${student_id} not found or access denied` 
+                    });
+                }
+
+                // Verify subject belongs to teacher's class
+                db.get('SELECT * FROM subjects WHERE id = ? AND class_id = ?', 
+                    [subject_id, classId], (err, subject) => {
+                        if (err) {
+                            console.error('Database error verifying subject:', err);
+                            return res.status(500).json({ error: 'Database error' });
+                        }
+                        
+                        if (!subject) {
+                            return res.status(404).json({ 
+                                error: `Subject ${subject_id} not found or access denied` 
+                            });
+                        }
+
+                        // Check if grade already exists
+                        let checkQuery, checkParams;
+                        
+                        if (task_id) {
+                            checkQuery = `SELECT * FROM grades WHERE student_id = ? AND subject_id = ? 
+                                         AND task_id = ? AND semester = ? AND academic_year = ?`;
+                            checkParams = [student_id, subject_id, task_id, semester, academic_year];
+                        } else {
+                            checkQuery = `SELECT * FROM grades WHERE student_id = ? AND subject_id = ? 
+                                         AND task_id IS NULL AND semester = ? AND academic_year = ? 
+                                         AND grade_type = ?`;
+                            checkParams = [student_id, subject_id, semester, academic_year, finalGradeType];
+                        }
+
+                        db.get(checkQuery, checkParams, (err, existingGrade) => {
+                            if (err) {
+                                console.error('Database error checking existing grade:', err);
+                                return res.status(500).json({ error: 'Database error' });
+                            }
+
+                            if (existingGrade) {
+                                // Update existing grade
+                                const updateQuery = `UPDATE grades SET grade_value = ?, updated_at = CURRENT_TIMESTAMP 
+                                                   WHERE id = ?`;
+                                db.run(updateQuery, [grade_value, existingGrade.id], (err) => {
+                                    if (err) {
+                                        console.error('Database error updating grade:', err);
+                                        return res.status(500).json({ error: 'Failed to update grade' });
+                                    }
+                                    
+                                    console.log(`Updated grade for student ${student_id}, subject ${subject_id}`);
+                                    processGrade(index + 1);
+                                });
+                            } else {
+                                // Insert new grade
+                                const insertQuery = `INSERT INTO grades 
+                                    (student_id, subject_id, task_id, grade_value, grade_type, semester, academic_year) 
+                                    VALUES (?, ?, ?, ?, ?, ?, ?)`;
+                                
+                                db.run(insertQuery, 
+                                    [student_id, subject_id, task_id || null, grade_value, finalGradeType, semester, academic_year], 
+                                    (err) => {
+                                        if (err) {
+                                            console.error('Database error inserting grade:', err);
+                                            return res.status(500).json({ error: 'Failed to insert grade' });
+                                        }
+                                        
+                                        console.log(`Inserted grade for student ${student_id}, subject ${subject_id}`);
+                                        processGrade(index + 1);
+                                    });
+                            }
+                        });
+                    });
+            });
+    };
+
+    // Start processing grades
+    processGrade(0);
+});
+
 module.exports = router;

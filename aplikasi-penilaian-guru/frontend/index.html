@@ -547,49 +547,71 @@
 
                         <!-- Final Grade Form -->
                         <div id="finalGradeForm" class="grade-form-tab">
-                            <form onsubmit="handleAddFinalGrade(event)" class="grade-form">
+                            <!-- Criteria Selection Form for Final Grades -->
+                            <div id="finalGradeCriteriaForm" class="grade-criteria-form">
+                                <h4><i class="fas fa-filter"></i> Pilih Kriteria Penilaian</h4>
                                 <div class="form-row">
                                     <div class="form-group">
-                                        <label for="finalGradeStudent">Siswa</label>
-                                        <select id="finalGradeStudent" required>
-                                            <option value="">Pilih Siswa</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="finalGradeSubject">Mata Pelajaran</label>
-                                        <select id="finalGradeSubject" required>
+                                        <label for="bulkFinalGradeSubject">Mata Pelajaran</label>
+                                        <select id="bulkFinalGradeSubject" required>
                                             <option value="">Pilih Mata Pelajaran</option>
                                         </select>
                                     </div>
                                     <div class="form-group">
-                                        <label for="finalGradeValue">Nilai Akhir (0-100)</label>
-                                        <input type="number" id="finalGradeValue" min="0" max="100" required>
-                                    </div>
-                                </div>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="finalGradeSemester">Semester</label>
-                                        <select id="finalGradeSemester" required>
+                                        <label for="bulkFinalGradeSemester">Semester</label>
+                                        <select id="bulkFinalGradeSemester" required>
                                             <option value="">Pilih Semester</option>
                                             <option value="1">Semester 1</option>
                                             <option value="2">Semester 2</option>
                                         </select>
                                     </div>
                                     <div class="form-group">
-                                        <label for="finalGradeAcademicYear">Tahun Akademik</label>
-                                        <select id="finalGradeAcademicYear" required>
+                                        <label for="bulkFinalGradeAcademicYear">Tahun Akademik</label>
+                                        <select id="bulkFinalGradeAcademicYear" required>
                                             <option value="">Pilih Tahun</option>
                                             <option value="2024/2025">2024/2025</option>
                                             <option value="2025/2026">2025/2026</option>
                                         </select>
                                     </div>
-                                    <div class="form-group">
-                                        <button type="submit" class="btn btn-success">
-                                            <i class="fas fa-save"></i> Simpan Nilai Akhir
+                                </div>
+                                <div class="form-actions">
+                                    <button type="button" onclick="loadStudentsForBulkFinalGrading()" class="btn btn-primary">
+                                        <i class="fas fa-users"></i> Tampilkan Semua Siswa
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Bulk Students Final Grading Form -->
+                            <div id="bulkStudentsFinalGradingForm" class="bulk-grading-form" style="display: none;">
+                                <div class="grading-header">
+                                    <h4><i class="fas fa-award"></i> Nilai Akhir untuk Semua Siswa</h4>
+                                    <div id="finalGradingInfo" class="task-info"></div>
+                                </div>
+                                
+                                <form onsubmit="handleBulkFinalGrade(event)">
+                                    <div id="studentsFinalGradingList" class="students-grading-list">
+                                        <!-- Students list will be populated here -->
+                                    </div>
+                                    
+                                    <div class="bulk-actions">
+                                        <button type="button" onclick="loadExistingFinalGrades()" class="btn btn-info">
+                                            <i class="fas fa-download"></i> Muat Nilai Tersimpan
+                                        </button>
+                                        <button type="button" onclick="fillAllFinalGrades()" class="btn btn-secondary">
+                                            <i class="fas fa-fill"></i> Isi Semua dengan Nilai yang Sama
+                                        </button>
+                                        <button type="button" onclick="clearAllFinalGrades()" class="btn btn-outline">
+                                            <i class="fas fa-eraser"></i> Kosongkan Semua
+                                        </button>
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-save"></i> Simpan Semua Nilai
+                                        </button>
+                                        <button type="button" onclick="cancelBulkFinalGrading()" class="btn btn-danger">
+                                            <i class="fas fa-times"></i> Batal
                                         </button>
                                     </div>
-                                </div>
-                            </form>
+                                </form>
+                            </div>
                         </div>
                     </div>
 
