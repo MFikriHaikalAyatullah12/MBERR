@@ -99,6 +99,94 @@ function getCachedData(key) {
     return null;
 }
 
+// Academic Year Generator Functions
+function generateAcademicYears() {
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1; // JavaScript months are 0-based
+    const academicYears = [];
+    
+    // Determine the current academic year based on the current date
+    // Academic year typically starts in July/August
+    let startYear;
+    if (currentMonth >= 7) {
+        // If current month is July or later, we're in the academic year that started this year
+        startYear = currentYear;
+    } else {
+        // If current month is before July, we're in the academic year that started last year
+        startYear = currentYear - 1;
+    }
+    
+    // Generate academic years: 2 past years, current year, and 5 future years
+    for (let i = -2; i <= 5; i++) {
+        const year = startYear + i;
+        const nextYear = year + 1;
+        academicYears.push(`${year}/${nextYear}`);
+    }
+    
+    return academicYears;
+}
+
+function getCurrentAcademicYear() {
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1;
+    
+    if (currentMonth >= 7) {
+        return `${currentYear}/${currentYear + 1}`;
+    } else {
+        return `${currentYear - 1}/${currentYear}`;
+    }
+}
+
+function populateAcademicYearDropdowns() {
+    const academicYears = generateAcademicYears();
+    const currentAcademicYear = getCurrentAcademicYear();
+    
+    // List of all academic year dropdown IDs
+    const dropdownIds = [
+        'academicYearFilter',
+        'bulkGradeAcademicYear',
+        'bulkFinalGradeAcademicYear',
+        'exportYear'
+    ];
+    
+    dropdownIds.forEach(dropdownId => {
+        const dropdown = document.getElementById(dropdownId);
+        if (dropdown) {
+            // Clear existing options except the first one (usually "Pilih..." or "Semua...")
+            const firstOption = dropdown.querySelector('option:first-child');
+            dropdown.innerHTML = '';
+            
+            // Add back the first option if it exists
+            if (firstOption) {
+                dropdown.appendChild(firstOption);
+            }
+            
+            // Add academic year options
+            academicYears.forEach(year => {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year;
+                
+                // Set current academic year as selected for certain dropdowns
+                if ((dropdownId === 'bulkGradeAcademicYear' || 
+                     dropdownId === 'bulkFinalGradeAcademicYear') && 
+                    year === currentAcademicYear) {
+                    option.selected = true;
+                }
+                
+                dropdown.appendChild(option);
+            });
+            
+            console.log(`Populated dropdown: ${dropdownId} with ${academicYears.length} academic years`);
+        } else {
+            console.warn(`Dropdown with ID '${dropdownId}' not found in DOM`);
+        }
+    });
+    
+    console.log('Academic year dropdowns populated with years:', academicYears);
+    console.log('Current academic year set to:', currentAcademicYear);
+}
+
 function setCachedData(key, data) {
     appCache[key] = {
         data: data,
@@ -269,6 +357,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Load available classes for registration
     loadAvailableClasses();
+    
+    // Populate academic year dropdowns with dynamic years
+    populateAcademicYearDropdowns();
     
     // Add event listener for task grade subject dropdown
     setTimeout(() => {
