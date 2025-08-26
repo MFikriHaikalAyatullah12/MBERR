@@ -321,7 +321,400 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
+    
+    // Mobile optimizations
+    initMobileOptimizations();
+    
+    // Additional mobile enhancements
+    if (window.innerWidth <= 768 || 'ontouchstart' in window) {
+        setTimeout(() => {
+            initAllMobileEnhancements();
+        }, 100);
+    }
+    
+    // Re-initialize mobile enhancements on window resize
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+            if (window.innerWidth <= 768 || 'ontouchstart' in window) {
+                initAllMobileEnhancements();
+            }
+        }, 250);
+    });
 });
+
+// Mobile optimization functions
+function initMobileOptimizations() {
+    // Fix viewport height for mobile browsers (address bar handling)
+    function setViewportHeight() {
+        let vh = window.innerHeight * 0.01;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+    }
+    
+    setViewportHeight();
+    window.addEventListener('resize', setViewportHeight);
+    window.addEventListener('orientationchange', () => {
+        setTimeout(setViewportHeight, 100);
+    });
+    
+    // Prevent iOS double-tap zoom
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', function (event) {
+        const now = (new Date()).getTime();
+        if (now - lastTouchEnd <= 300) {
+            event.preventDefault();
+        }
+        lastTouchEnd = now;
+    }, false);
+    
+    // Improve touch scrolling performance
+    document.addEventListener('touchstart', function() {}, {passive: true});
+    document.addEventListener('touchmove', function() {}, {passive: true});
+    
+    // Handle mobile keyboard
+    if (/Mobi|Android/i.test(navigator.userAgent)) {
+        // Mobile-specific optimizations
+        const inputs = document.querySelectorAll('input, textarea');
+        inputs.forEach(input => {
+            input.addEventListener('focus', function() {
+                // Prevent zoom on input focus for iOS
+                if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                    this.style.fontSize = '16px';
+                }
+                
+                // Scroll to input on mobile
+                setTimeout(() => {
+                    this.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center'
+                    });
+                }, 300);
+            });
+            
+            input.addEventListener('blur', function() {
+                // Reset font size after blur
+                if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                    this.style.fontSize = '';
+                }
+            });
+        });
+        
+        // Add mobile-specific classes
+        document.body.classList.add('mobile-device');
+        
+        // Handle orientation change
+        window.addEventListener('orientationchange', function() {
+            setTimeout(() => {
+                // Force redraw
+                document.body.style.height = '100.1%';
+                setTimeout(() => {
+                    document.body.style.height = '100%';
+                }, 10);
+            }, 100);
+        });
+        
+        // Improve table scrolling on mobile
+        const tables = document.querySelectorAll('.table-responsive');
+        tables.forEach(table => {
+            table.addEventListener('touchstart', function() {
+                this.style.overflowX = 'auto';
+            });
+        });
+        
+        // Add swipe gestures for navigation (optional)
+        let startX = null;
+        let startY = null;
+        
+        document.addEventListener('touchstart', function(e) {
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+        });
+        
+        document.addEventListener('touchend', function(e) {
+            if (!startX || !startY) return;
+            
+            const endX = e.changedTouches[0].clientX;
+            const endY = e.changedTouches[0].clientY;
+            
+            const diffX = startX - endX;
+            const diffY = startY - endY;
+            
+            // Only handle horizontal swipes
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
+                // Swipe detected - could add navigation here if needed
+                // For now, just clear the values
+            }
+            
+            startX = null;
+            startY = null;
+        });
+    }
+    
+    // Handle safe area for iOS devices with notch
+    if (CSS.supports('padding-top: env(safe-area-inset-top)')) {
+        document.body.classList.add('has-safe-area');
+    }
+    
+    // Optimize modal display for mobile
+    const modals = document.querySelectorAll('.modal');
+    modals.forEach(modal => {
+        modal.addEventListener('show', function() {
+            if (window.innerWidth <= 768) {
+                // Prevent body scroll when modal is open on mobile
+                document.body.style.overflow = 'hidden';
+                document.body.style.position = 'fixed';
+                document.body.style.width = '100%';
+            }
+        });
+        
+        modal.addEventListener('hide', function() {
+            if (window.innerWidth <= 768) {
+                // Restore body scroll when modal is closed
+                document.body.style.overflow = '';
+                document.body.style.position = '';
+                document.body.style.width = '';
+            }
+        });
+    });
+    
+    // Add pull-to-refresh functionality (simple implementation)
+    let startY = 0;
+    let isPulling = false;
+    
+    document.addEventListener('touchstart', function(e) {
+        startY = e.touches[0].pageY;
+        isPulling = window.scrollY === 0;
+    });
+    
+    document.addEventListener('touchmove', function(e) {
+        if (!isPulling) return;
+        
+        const currentY = e.touches[0].pageY;
+        const pullDistance = currentY - startY;
+        
+        if (pullDistance > 100 && window.scrollY === 0) {
+            // Add pull-to-refresh indicator if needed
+            const refreshIndicator = document.querySelector('.pull-refresh-indicator');
+            if (refreshIndicator) {
+                refreshIndicator.style.display = 'block';
+            }
+        }
+    });
+    
+    document.addEventListener('touchend', function() {
+        isPulling = false;
+        const refreshIndicator = document.querySelector('.pull-refresh-indicator');
+        if (refreshIndicator) {
+            refreshIndicator.style.display = 'none';
+        }
+    });
+}
+
+// Enhanced Mobile Table Experience
+function initMobileTableEnhancements() {
+    const tables = document.querySelectorAll('.table-responsive');
+    
+    tables.forEach(table => {
+        // Add scroll hint for mobile tables
+        let scrollTimer;
+        
+        function showScrollHint() {
+            if (window.innerWidth <= 768 && table.scrollWidth > table.clientWidth) {
+                table.classList.add('show-scroll-hint');
+                clearTimeout(scrollTimer);
+                scrollTimer = setTimeout(() => {
+                    table.classList.remove('show-scroll-hint');
+                }, 3000);
+            }
+        }
+        
+        // Show hint on first load and window resize
+        showScrollHint();
+        window.addEventListener('resize', showScrollHint);
+        
+        // Hide hint when user starts scrolling
+        table.addEventListener('scroll', () => {
+            table.classList.remove('show-scroll-hint');
+            clearTimeout(scrollTimer);
+        });
+        
+        // Add touch-friendly scrolling
+        table.addEventListener('touchstart', function(e) {
+            this.style.webkitOverflowScrolling = 'touch';
+        });
+    });
+}
+
+// Enhanced Modal Experience for Mobile
+function initMobileModalEnhancements() {
+    const modals = document.querySelectorAll('.modal');
+    
+    modals.forEach(modal => {
+        // Add swipe down to close on mobile
+        let startY = 0;
+        let currentY = 0;
+        let isDragging = false;
+        
+        const modalContent = modal.querySelector('.modal-content');
+        if (!modalContent) return;
+        
+        modalContent.addEventListener('touchstart', (e) => {
+            if (window.innerWidth <= 768) {
+                startY = e.touches[0].clientY;
+                isDragging = true;
+                modalContent.style.transition = 'none';
+            }
+        });
+        
+        modalContent.addEventListener('touchmove', (e) => {
+            if (!isDragging || window.innerWidth > 768) return;
+            
+            currentY = e.touches[0].clientY;
+            const diff = currentY - startY;
+            
+            if (diff > 0) { // Only allow downward swipe
+                modalContent.style.transform = `translateY(${diff}px)`;
+                modal.style.backgroundColor = `rgba(0, 0, 0, ${Math.max(0.1, 0.5 - (diff / 1000))})`;
+            }
+        });
+        
+        modalContent.addEventListener('touchend', () => {
+            if (!isDragging || window.innerWidth > 768) return;
+            
+            const diff = currentY - startY;
+            modalContent.style.transition = 'transform 0.3s ease';
+            
+            if (diff > 100) {
+                // Close modal if swiped down enough
+                const modalId = modal.id;
+                if (modalId && typeof closeModal === 'function') {
+                    closeModal(modalId);
+                } else {
+                    modal.style.display = 'none';
+                }
+            } else {
+                // Snap back to position
+                modalContent.style.transform = 'translateY(0)';
+                modal.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+            }
+            
+            isDragging = false;
+            startY = 0;
+            currentY = 0;
+        });
+    });
+}
+
+// Mobile Form Enhancements
+function initMobileFormEnhancements() {
+    const inputs = document.querySelectorAll('input, select, textarea');
+    
+    inputs.forEach(input => {
+        // Handle virtual keyboard on mobile
+        input.addEventListener('focus', function() {
+            if (window.innerWidth <= 768) {
+                // Add focused class for styling
+                this.classList.add('mobile-focused');
+                
+                // Scroll to input with offset for mobile keyboard
+                setTimeout(() => {
+                    const rect = this.getBoundingClientRect();
+                    const offset = window.innerHeight * 0.3; // Account for keyboard
+                    
+                    if (rect.bottom > window.innerHeight - offset) {
+                        this.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'center'
+                        });
+                    }
+                }, 300);
+            }
+        });
+        
+        input.addEventListener('blur', function() {
+            this.classList.remove('mobile-focused');
+        });
+    });
+}
+
+// Mobile Navigation Enhancements
+function initMobileNavigationEnhancements() {
+    if (window.innerWidth <= 768) {
+        const menuItems = document.querySelectorAll('.menu-item');
+        
+        // Add haptic feedback simulation for menu items
+        menuItems.forEach(item => {
+            item.addEventListener('touchstart', function() {
+                this.style.transform = 'scale(0.95)';
+                // Add vibration if supported
+                if (navigator.vibrate) {
+                    navigator.vibrate(10);
+                }
+            });
+            
+            item.addEventListener('touchend', function() {
+                setTimeout(() => {
+                    this.style.transform = '';
+                }, 100);
+            });
+            
+            item.addEventListener('touchcancel', function() {
+                this.style.transform = '';
+            });
+        });
+    }
+}
+
+// Device-specific optimizations
+function initDeviceSpecificOptimizations() {
+    // iOS specific optimizations
+    if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+        document.body.classList.add('ios-device');
+        
+        // Fix iOS input zoom
+        const inputs = document.querySelectorAll('input, select, textarea');
+        inputs.forEach(input => {
+            input.addEventListener('focus', function() {
+                if (parseFloat(this.style.fontSize) < 16) {
+                    this.style.fontSize = '16px';
+                }
+            });
+        });
+    }
+    
+    // Android specific optimizations
+    if (/Android/.test(navigator.userAgent)) {
+        document.body.classList.add('android-device');
+        
+        // Handle Android Chrome address bar
+        function handleAndroidViewport() {
+            const vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--vh', `${vh}px`);
+        }
+        
+        window.addEventListener('resize', handleAndroidViewport);
+        handleAndroidViewport();
+    }
+    
+    // Handle high DPI displays
+    if (window.devicePixelRatio > 1.5) {
+        document.body.classList.add('high-dpi');
+    }
+}
+
+// Initialize all mobile enhancements
+function initAllMobileEnhancements() {
+    try {
+        initMobileTableEnhancements();
+        initMobileModalEnhancements();
+        initMobileFormEnhancements();
+        initMobileNavigationEnhancements();
+        initDeviceSpecificOptimizations();
+    } catch (error) {
+        console.warn('Error initializing mobile enhancements:', error);
+    }
+}
 
 // Authentication Functions
 async function handleLogin(event) {
