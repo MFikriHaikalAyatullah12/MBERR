@@ -302,6 +302,135 @@ router.post('/', authenticateToken, (req, res) => {
         });
 });
 
+// Bulk add/update grades
+router.post('/bulk', authenticateToken, (req, res) => {
+    const { grades } = req.body;
+    const classId = req.user.class_id;
+
+    if (!grades || !Array.isArray(grades) || grades.length === 0) {
+        return res.status(400).json({ error: 'Data nilai tidak valid' });
+    }
+
+    console.log('Bulk grades request received:', { grades: grades.length, classId });
+
+    db.serialize(() => {
+        let processed = 0;
+        let errors = [];
+
+        const processGrade = (grade, callback) => {
+            const { student_id, subject_id, task_id, grade_value, grade_type, semester, academic_year } = grade;
+            const finalGradeType = grade_type || (task_id ? 'task' : 'final');
+
+            // Validate required fields
+            if (!student_id || !subject_id || grade_value === undefined || !semester || !academic_year) {
+                return callback('Data tidak lengkap');
+            }
+
+            // Validate grade value
+            if (isNaN(grade_value) || grade_value < 0 || grade_value > 100) {
+                return callback('Nilai harus antara 0-100');
+            }
+
+            // Verify student belongs to teacher's class
+            db.get(
+                'SELECT id FROM students WHERE id = ? AND class_id = ?',
+                [student_id, classId],
+                (err, student) => {
+                    if (err) {
+                        console.error('Error checking student:', err);
+                        return callback('Error validating student');
+                    }
+
+                    if (!student) {
+                        return callback('Siswa tidak ditemukan dalam kelas Anda');
+                    }
+
+                    // Check if grade already exists
+                    let checkQuery = `
+                        SELECT g.id 
+                        FROM grades g 
+                        INNER JOIN students s ON g.student_id = s.id 
+                        WHERE g.student_id = ? AND g.subject_id = ? AND g.grade_type = ? 
+                        AND g.semester = ? AND g.academic_year = ? AND s.class_id = ?
+                    `;
+                    let checkParams = [student_id, subject_id, finalGradeType, semester, academic_year, classId];
+
+                    if (task_id) {
+                        checkQuery += ' AND g.task_id = ?';
+                        checkParams.push(task_id);
+                    } else {
+                        checkQuery += ' AND g.task_id IS NULL';
+                    }
+
+                    db.get(checkQuery, checkParams, (err, existingGrade) => {
+                        if (err) {
+                            console.error('Error checking existing grade:', err);
+                            return callback('Error checking existing grade');
+                        }
+
+                        if (existingGrade) {
+                            // Update existing grade
+                            db.run(
+                                'UPDATE grades SET grade_value = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+                                [grade_value, existingGrade.id],
+                                function(err) {
+                                    if (err) {
+                                        console.error('Error updating grade:', err);
+                                        return callback('Error updating grade');
+                                    }
+                                    callback(null, 'updated');
+                                }
+                            );
+                        } else {
+                            // Insert new grade
+                            db.run(
+                                'INSERT INTO grades (student_id, subject_id, task_id, grade_value, grade_type, semester, academic_year) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                                [student_id, subject_id, task_id || null, grade_value, finalGradeType, semester, academic_year],
+                                function(err) {
+                                    if (err) {
+                                        console.error('Error inserting grade:', err);
+                                        return callback('Error inserting grade');
+                                    }
+                                    callback(null, 'inserted');
+                                }
+                            );
+                        }
+                    });
+                }
+            );
+        };
+
+        // Process all grades
+        const processNext = (index) => {
+            if (index >= grades.length) {
+                // All done
+                if (errors.length > 0) {
+                    return res.status(400).json({ 
+                        error: 'Beberapa nilai gagal disimpan', 
+                        details: errors,
+                        processed: processed 
+                    });
+                }
+                return res.json({ 
+                    message: `Berhasil memproses ${processed} nilai`,
+                    processed: processed 
+                });
+            }
+
+            processGrade(grades[index], (err, result) => {
+                if (err) {
+                    errors.push({ index: index + 1, error: err });
+                } else {
+                    processed++;
+                }
+                processNext(index + 1);
+            });
+        };
+
+        processNext(0);
+    });
+});
+
 // Delete grade
 router.delete('/:id', authenticateToken, (req, res) => {
     const gradeId = req.params.id;

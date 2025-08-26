@@ -1694,18 +1694,16 @@ function renderStudentsTable() {
     students.forEach((student, index) => {
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td class="text-center">${index + 1}</td>
-            <td class="font-weight-medium">${student.name}</td>
-            <td class="text-center">${student.nis || '-'}</td>
-            <td class="text-center">
-                <div class="action-buttons">
-                    <button onclick="editStudent(${student.id})" class="action-btn btn-edit" title="Edit Siswa">
-                        <i class="fas fa-edit"></i> Edit
-                    </button>
-                    <button onclick="deleteStudent(${student.id})" class="action-btn btn-delete" title="Hapus Siswa">
-                        <i class="fas fa-trash"></i> Hapus
-                    </button>
-                </div>
+            <td>${index + 1}</td>
+            <td>${student.name}</td>
+            <td>${student.nis || '-'}</td>
+            <td>
+                <button onclick="editStudent(${student.id})" class="action-btn btn-edit">
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+                <button onclick="deleteStudent(${student.id})" class="action-btn btn-delete">
+                    <i class="fas fa-trash"></i> Hapus
+                </button>
             </td>
         `;
         tbody.appendChild(row);
@@ -1749,22 +1747,20 @@ function renderTasksTable() {
         const dueDate = task.due_date ? new Date(task.due_date).toLocaleDateString('id-ID') : '-';
         
         row.innerHTML = `
-            <td class="font-weight-medium">${task.name}</td>
+            <td>${task.name}</td>
             <td>${task.subject_name}</td>
             <td>${task.description || '-'}</td>
-            <td class="text-center">${dueDate}</td>
-            <td class="text-center">
-                <div class="action-buttons">
-                    <button onclick="viewTaskGrades(${task.id})" class="action-btn btn-view" title="Lihat Nilai">
-                        <i class="fas fa-eye"></i> Lihat Nilai
-                    </button>
-                    <button onclick="editTask(${task.id})" class="action-btn btn-edit" title="Edit Tugas">
-                        <i class="fas fa-edit"></i> Edit
-                    </button>
-                    <button onclick="deleteTask(${task.id})" class="action-btn btn-delete" title="Hapus Tugas">
-                        <i class="fas fa-trash"></i> Hapus
-                    </button>
-                </div>
+            <td>${dueDate}</td>
+            <td>
+                <button onclick="viewTaskGrades(${task.id})" class="action-btn btn-info">
+                    <i class="fas fa-eye"></i> Lihat Nilai
+                </button>
+                <button onclick="editTask(${task.id})" class="action-btn btn-edit">
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+                <button onclick="deleteTask(${task.id})" class="action-btn btn-delete">
+                    <i class="fas fa-trash"></i> Hapus
+                </button>
             </td>
         `;
         tbody.appendChild(row);

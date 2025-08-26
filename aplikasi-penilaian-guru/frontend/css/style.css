@@ -1142,43 +1142,22 @@ body {
 /* Action Buttons */
 .action-buttons {
     display: flex;
-    gap: 6px;
+    gap: 8px;
     justify-content: center;
-    align-items: center;
-    flex-wrap: wrap;
 }
 
 .action-btn {
-    padding: 6px 12px;
+    padding: 8px 10px;
     border: none;
     border-radius: 6px;
     cursor: pointer;
     font-size: 12px;
-    font-weight: 500;
     transition: all 0.3s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    min-width: 70px;
-    height: 32px;
-    text-decoration: none;
-    color: white;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.action-btn i {
-    font-size: 11px;
-}
-
-.action-btn.btn-view {
-    background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
-    color: white;
-}
-
-.action-btn.btn-view:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(56, 161, 105, 0.3);
+    min-width: 36px;
+    height: 36px;
 }
 
 .action-btn.btn-edit {
@@ -1187,8 +1166,8 @@ body {
 }
 
 .action-btn.btn-edit:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(66, 153, 225, 0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(66, 153, 225, 0.3);
 }
 
 .action-btn.btn-delete {
@@ -1197,8 +1176,8 @@ body {
 }
 
 .action-btn.btn-delete:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(245, 101, 101, 0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(245, 101, 101, 0.3);
 }
 
 /* Table Styling Improvements */
@@ -1218,131 +1197,6 @@ body {
 .grades-table th:last-child,
 .grades-table td:last-child {
     width: 120px;
-}
-
-/* Students Table Specific */
-.students-table {
-    width: 100%;
-    border-collapse: collapse;
-    background: white;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
-}
-
-.students-table th {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 16px 12px;
-    text-align: left;
-    font-weight: 600;
-    font-size: 14px;
-    white-space: nowrap;
-}
-
-.students-table td {
-    padding: 16px 12px;
-    border-bottom: 1px solid #f1f3f4;
-    color: #2d3748;
-    font-size: 14px;
-    vertical-align: middle;
-}
-
-.students-table tbody tr:hover {
-    background-color: #f8fafc;
-    transition: background-color 0.2s ease;
-}
-
-.students-table tbody tr:last-child td {
-    border-bottom: none;
-}
-
-/* Tasks Table Specific */
-.tasks-table {
-    width: 100%;
-    border-collapse: collapse;
-    background: white;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
-}
-
-.tasks-table th {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 16px 12px;
-    text-align: left;
-    font-weight: 600;
-    font-size: 14px;
-    white-space: nowrap;
-}
-
-.tasks-table td {
-    padding: 16px 12px;
-    border-bottom: 1px solid #f1f3f4;
-    color: #2d3748;
-    font-size: 14px;
-    vertical-align: middle;
-}
-
-.tasks-table tbody tr:hover {
-    background-color: #f8fafc;
-    transition: background-color 0.2s ease;
-}
-
-.tasks-table tbody tr:last-child td {
-    border-bottom: none;
-}
-
-/* Action column width */
-.students-table th:last-child,
-.students-table td:last-child,
-.tasks-table th:last-child,
-.tasks-table td:last-child {
-    width: 220px;
-    text-align: center;
-}
-
-/* Table container improvements */
-.table-container {
-    background: white;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
-    margin-bottom: 24px;
-}
-
-.table-responsive {
-    overflow-x: auto;
-    border-radius: 12px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
-}
-
-/* Responsive adjustments for action buttons */
-@media (max-width: 768px) {
-    .action-buttons {
-        gap: 4px;
-        flex-direction: column;
-    }
-    
-    .action-btn {
-        min-width: 70px;
-        height: 28px;
-        padding: 4px 8px;
-        font-size: 11px;
-        margin: 1px 0;
-    }
-    
-    .action-btn i {
-        font-size: 10px;
-    }
-    
-    .students-table th:last-child,
-    .students-table td:last-child,
-    .tasks-table th:last-child,
-    .tasks-table td:last-child {
-        width: 120px;
-    }
 }
 
 .stats-grid {
