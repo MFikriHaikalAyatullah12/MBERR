@@ -1142,42 +1142,64 @@ body {
 /* Action Buttons */
 .action-buttons {
     display: flex;
-    gap: 8px;
+    gap: 4px;
     justify-content: center;
+    align-items: center;
+    flex-wrap: nowrap;
 }
 
 .action-btn {
-    padding: 8px 10px;
+    padding: 6px 10px;
     border: none;
-    border-radius: 6px;
+    border-radius: 5px;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 11px;
+    font-weight: 500;
     transition: all 0.3s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 36px;
-    height: 36px;
+    gap: 3px;
+    min-width: 65px;
+    height: 30px;
+    text-decoration: none;
+    color: white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    white-space: nowrap;
+}
+
+.action-btn i {
+    font-size: 10px;
+}
+
+.action-btn.btn-view {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+}
+
+.action-btn.btn-view:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(16, 185, 129, 0.25);
 }
 
 .action-btn.btn-edit {
-    background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
     color: white;
 }
 
 .action-btn.btn-edit:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(66, 153, 225, 0.3);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(59, 130, 246, 0.25);
 }
 
 .action-btn.btn-delete {
-    background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
     color: white;
 }
 
 .action-btn.btn-delete:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(245, 101, 101, 0.3);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(239, 68, 68, 0.25);
 }
 
 /* Table Styling Improvements */
@@ -1197,6 +1219,94 @@ body {
 .grades-table th:last-child,
 .grades-table td:last-child {
     width: 120px;
+}
+
+/* Students Table Specific */
+.students-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+.students-table th {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 16px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.students-table td {
+    padding: 12px;
+    border-bottom: 1px solid #f1f3f4;
+    color: #2d3748;
+    font-size: 14px;
+    vertical-align: middle;
+}
+
+.students-table tbody tr:hover {
+    background-color: #f8fafc;
+    transition: background-color 0.2s ease;
+}
+
+.students-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.students-table th:last-child,
+.students-table td:last-child {
+    width: 160px;
+    text-align: center;
+    padding: 8px;
+}
+
+/* Tasks Table Specific */
+.tasks-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+.tasks-table th {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 16px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.tasks-table td {
+    padding: 12px;
+    border-bottom: 1px solid #f1f3f4;
+    color: #2d3748;
+    font-size: 14px;
+    vertical-align: middle;
+}
+
+.tasks-table tbody tr:hover {
+    background-color: #f8fafc;
+    transition: background-color 0.2s ease;
+}
+
+.tasks-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.tasks-table th:last-child,
+.tasks-table td:last-child {
+    width: 240px;
+    text-align: center;
+    padding: 8px;
 }
 
 .stats-grid {
@@ -2704,16 +2814,32 @@ a:focus {
     .table-responsive {
         overflow-x: scroll;
         -webkit-overflow-scrolling: touch;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     
     .grades-table {
         min-width: 800px;
     }
     
+    .students-table,
+    .tasks-table {
+        min-width: 600px;
+    }
+    
     .grades-table th,
     .grades-table td {
         padding: 12px 8px;
         font-size: 13px;
+    }
+    
+    .students-table th,
+    .students-table td,
+    .tasks-table th,
+    .tasks-table td {
+        padding: 10px 6px;
+        font-size: 12px;
+        white-space: nowrap;
     }
     
     .grade-input-section {
@@ -2726,14 +2852,26 @@ a:focus {
     }
     
     .action-buttons {
-        flex-direction: column;
-        gap: 4px;
+        flex-direction: row;
+        gap: 3px;
+        flex-wrap: wrap;
+        justify-content: center;
     }
     
     .action-btn {
-        min-width: 32px;
-        height: 32px;
-        font-size: 11px;
+        min-width: 30px;
+        height: 30px;
+        font-size: 10px;
+        padding: 4px 6px;
+        border-radius: 4px;
+    }
+    
+    .students-table .action-buttons {
+        width: 100px;
+    }
+    
+    .tasks-table .action-buttons {
+        width: 140px;
     }
     
     .no-data-message {
@@ -2776,8 +2914,23 @@ a:focus {
     }
     
     .action-btn {
-        min-width: 28px;
-        height: 28px;
-        font-size: 10px;
+        min-width: 26px;
+        height: 26px;
+        font-size: 9px;
+        padding: 3px 4px;
+    }
+    
+    .students-table .action-buttons {
+        width: 80px;
+    }
+    
+    .tasks-table .action-buttons {
+        width: 110px;
+    }
+    
+    /* Stack buttons vertically on very small screens */
+    .action-buttons {
+        flex-direction: column;
+        gap: 2px;
     }
 }
