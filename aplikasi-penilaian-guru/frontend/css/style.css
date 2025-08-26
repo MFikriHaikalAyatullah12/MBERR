@@ -913,12 +913,17 @@ body {
 }
 
 .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 24px 32px;
+    border-radius: 16px;
     margin-bottom: 32px;
-    padding: 24px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.header-title {
+    flex: 1;
 }
 
 .page-header h2 {
@@ -929,6 +934,415 @@ body {
     align-items: center;
     gap: 12px;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin: 0;
+}
+
+.filter-section {
+    margin-top: 20px;
+}
+
+.filter-group {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.filter-group select {
+    padding: 12px 16px;
+    border: 2px solid #e1e5e9;
+    border-radius: 8px;
+    background: white;
+    font-size: 14px;
+    font-weight: 500;
+    color: #2d3748;
+    min-width: 180px;
+    transition: all 0.3s ease;
+}
+
+.filter-group select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.btn-filter {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.btn-filter:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+}
+
+.btn-clear {
+    background: linear-gradient(135deg, #718096 0%, #4a5568 100%);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.btn-clear:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(113, 128, 150, 0.3);
+}
+
+/* Grades Display Section */
+.grades-display-section {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 32px;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    margin-bottom: 24px;
+}
+
+.table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #f1f3f4;
+}
+
+.table-header h3 {
+    color: #1a1a1a;
+    font-size: 1.5rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+}
+
+.table-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.table-responsive {
+    overflow-x: auto;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+.grades-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.grades-table th {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 16px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.grades-table td {
+    padding: 16px 12px;
+    border-bottom: 1px solid #f1f3f4;
+    color: #2d3748;
+    font-size: 14px;
+}
+
+.grades-table tbody tr:hover {
+    background-color: #f8fafc;
+    transition: background-color 0.2s ease;
+}
+
+.grades-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.no-data-message {
+    text-align: center;
+    padding: 60px 20px;
+    color: #718096;
+}
+
+.no-data-message i {
+    font-size: 3rem;
+    margin-bottom: 16px;
+    color: #cbd5e0;
+}
+
+.no-data-message h4 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #4a5568;
+}
+
+.no-data-message p {
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+/* Grade Type Badges */
+.grade-type-badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.grade-type-badge.task {
+    background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+    color: white;
+}
+
+.grade-type-badge.final {
+    background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+    color: white;
+}
+
+/* Grade Value Display */
+.grade-value-display {
+    font-weight: 700;
+    font-size: 16px;
+    color: #2d3748;
+    padding: 4px 8px;
+    background: #f7fafc;
+    border-radius: 6px;
+    border-left: 4px solid #667eea;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.action-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-width: 70px;
+    height: 32px;
+    text-decoration: none;
+    color: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.action-btn i {
+    font-size: 11px;
+}
+
+.action-btn.btn-view {
+    background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
+    color: white;
+}
+
+.action-btn.btn-view:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(56, 161, 105, 0.3);
+}
+
+.action-btn.btn-edit {
+    background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+    color: white;
+}
+
+.action-btn.btn-edit:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(66, 153, 225, 0.3);
+}
+
+.action-btn.btn-delete {
+    background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+    color: white;
+}
+
+.action-btn.btn-delete:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(245, 101, 101, 0.3);
+}
+
+/* Table Styling Improvements */
+.text-center {
+    text-align: center;
+}
+
+.font-weight-medium {
+    font-weight: 600;
+}
+
+.grades-table th:first-child,
+.grades-table td:first-child {
+    width: 60px;
+}
+
+.grades-table th:last-child,
+.grades-table td:last-child {
+    width: 120px;
+}
+
+/* Students Table Specific */
+.students-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+.students-table th {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 16px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.students-table td {
+    padding: 16px 12px;
+    border-bottom: 1px solid #f1f3f4;
+    color: #2d3748;
+    font-size: 14px;
+    vertical-align: middle;
+}
+
+.students-table tbody tr:hover {
+    background-color: #f8fafc;
+    transition: background-color 0.2s ease;
+}
+
+.students-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Tasks Table Specific */
+.tasks-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+.tasks-table th {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 16px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.tasks-table td {
+    padding: 16px 12px;
+    border-bottom: 1px solid #f1f3f4;
+    color: #2d3748;
+    font-size: 14px;
+    vertical-align: middle;
+}
+
+.tasks-table tbody tr:hover {
+    background-color: #f8fafc;
+    transition: background-color 0.2s ease;
+}
+
+.tasks-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Action column width */
+.students-table th:last-child,
+.students-table td:last-child,
+.tasks-table th:last-child,
+.tasks-table td:last-child {
+    width: 220px;
+    text-align: center;
+}
+
+/* Table container improvements */
+.table-container {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+    margin-bottom: 24px;
+}
+
+.table-responsive {
+    overflow-x: auto;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+/* Responsive adjustments for action buttons */
+@media (max-width: 768px) {
+    .action-buttons {
+        gap: 4px;
+        flex-direction: column;
+    }
+    
+    .action-btn {
+        min-width: 70px;
+        height: 28px;
+        padding: 4px 8px;
+        font-size: 11px;
+        margin: 1px 0;
+    }
+    
+    .action-btn i {
+        font-size: 10px;
+    }
+    
+    .students-table th:last-child,
+    .students-table td:last-child,
+    .tasks-table th:last-child,
+    .tasks-table td:last-child {
+        width: 120px;
+    }
 }
 
 .stats-grid {
@@ -1108,20 +1522,6 @@ body {
 
 .data-table tr:last-child td {
     border-bottom: none;
-}
-
-.filter-group {
-    display: flex;
-    gap: 15px;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-.filter-group select {
-    padding: 8px 12px;
-    border: 2px solid #e1e5e9;
-    border-radius: 6px;
-    background: white;
 }
 
 .grade-input-section {
@@ -2391,5 +2791,139 @@ a:focus {
     
     .warning-icon {
         align-self: center;
+    }
+}
+
+/* Responsive Design for Mobile */
+@media (max-width: 768px) {
+    .page-header {
+        flex-direction: column;
+        gap: 20px;
+        padding: 20px;
+        text-align: center;
+    }
+    
+    .header-title h2 {
+        font-size: 1.5rem;
+        justify-content: center;
+    }
+    
+    .filter-section {
+        width: 100%;
+    }
+    
+    .filter-group {
+        flex-direction: column;
+        gap: 12px;
+        padding: 16px;
+    }
+    
+    .filter-group select {
+        width: 100%;
+        min-width: auto;
+    }
+    
+    .btn-filter {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .grades-display-section {
+        padding: 20px;
+    }
+    
+    .table-header {
+        flex-direction: column;
+        gap: 16px;
+        text-align: center;
+    }
+    
+    .table-header h3 {
+        font-size: 1.25rem;
+        justify-content: center;
+    }
+    
+    .table-actions {
+        justify-content: center;
+    }
+    
+    .table-responsive {
+        overflow-x: scroll;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .grades-table {
+        min-width: 800px;
+    }
+    
+    .grades-table th,
+    .grades-table td {
+        padding: 12px 8px;
+        font-size: 13px;
+    }
+    
+    .grade-input-section {
+        padding: 20px;
+    }
+    
+    .grade-input-section h3 {
+        font-size: 1.25rem;
+        text-align: center;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .action-btn {
+        min-width: 32px;
+        height: 32px;
+        font-size: 11px;
+    }
+    
+    .no-data-message {
+        padding: 40px 16px;
+    }
+    
+    .no-data-message i {
+        font-size: 2rem;
+    }
+    
+    .no-data-message h4 {
+        font-size: 1.1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .filter-group select {
+        font-size: 13px;
+        padding: 10px 12px;
+    }
+    
+    .btn-filter {
+        font-size: 13px;
+        padding: 10px 16px;
+    }
+    
+    .grades-table th,
+    .grades-table td {
+        padding: 10px 6px;
+        font-size: 12px;
+    }
+    
+    .grade-type-badge {
+        font-size: 10px;
+        padding: 4px 8px;
+    }
+    
+    .grade-value-display {
+        font-size: 14px;
+    }
+    
+    .action-btn {
+        min-width: 28px;
+        height: 28px;
+        font-size: 10px;
     }
 }
