@@ -31,6 +31,29 @@ router.get('/', authenticateToken, (req, res) => {
     });
 });
 
+// Get task by ID
+router.get('/:id', authenticateToken, (req, res) => {
+    const taskId = req.params.id;
+    const classId = req.user.class_id;
+    
+    const query = `SELECT t.*, s.name as subject_name 
+                   FROM tasks t 
+                   JOIN subjects s ON t.subject_id = s.id 
+                   WHERE t.id = ? AND t.class_id = ?`;
+    
+    db.get(query, [taskId, classId], (err, task) => {
+        if (err) {
+            return res.status(500).json({ error: 'Database error' });
+        }
+        
+        if (!task) {
+            return res.status(404).json({ error: 'Task not found or access denied' });
+        }
+        
+        res.json(task);
+    });
+});
+
 // Add new task
 router.post('/', authenticateToken, (req, res) => {
     const { name, description, subject_id, due_date } = req.body;
@@ -170,6 +193,33 @@ router.get('/:id/grades', authenticateToken, (req, res) => {
                         task,
                         students
                     });
+                });
+        });
+});
+
+// Get tasks by subject for bulk grading
+router.get('/by-subject/:subjectId', authenticateToken, (req, res) => {
+    const subjectId = req.params.subjectId;
+    const classId = req.user.class_id;
+    
+    // Verify subject belongs to teacher's class
+    db.get('SELECT * FROM subjects WHERE id = ? AND class_id = ?', 
+        [subjectId, classId], (err, subject) => {
+            if (err) {
+                return res.status(500).json({ error: 'Database error' });
+            }
+            
+            if (!subject) {
+                return res.status(404).json({ error: 'Subject not found or access denied' });
+            }
+            
+            // Get tasks for the subject
+            db.all('SELECT * FROM tasks WHERE subject_id = ? AND class_id = ? ORDER BY name', 
+                [subjectId, classId], (err, tasks) => {
+                    if (err) {
+                        return res.status(500).json({ error: 'Database error' });
+                    }
+                    res.json(tasks);
                 });
         });
 });

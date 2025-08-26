@@ -211,6 +211,18 @@ document.addEventListener('DOMContentLoaded', function() {
         if (taskGradeSubject) {
             taskGradeSubject.addEventListener('change', loadTasksForSubject);
         }
+        
+        // Add event listener for bulk grade subject dropdown
+        const bulkGradeSubject = document.getElementById('bulkGradeSubject');
+        if (bulkGradeSubject) {
+            console.log('Adding event listener to bulkGradeSubject');
+            bulkGradeSubject.addEventListener('change', function() {
+                console.log('bulkGradeSubject changed to:', this.value);
+                loadTasksForBulkGrading();
+            });
+        } else {
+            console.log('bulkGradeSubject element not found');
+        }
     }, 1000);
     
     // Set up periodic session validation
@@ -219,6 +231,31 @@ document.addEventListener('DOMContentLoaded', function() {
             validateToken();
         }
     }, 30 * 60 * 1000); // Check every 30 minutes
+    
+    // Add page visibility listener to refresh data when user returns to tab
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden && token && currentUser) {
+            // Refresh data when user returns to the tab
+            const currentSection = document.querySelector('.content-section:not([style*="display: none"])');
+            if (currentSection && currentSection.id === 'grades') {
+                // If we're on grades page, refresh grades data
+                loadGrades();
+                
+                // If bulk grading form is visible, refresh that too
+                const bulkForm = document.getElementById('bulkStudentsGradingForm');
+                if (bulkForm && bulkForm.style.display !== 'none') {
+                    const subjectId = document.getElementById('bulkGradeSubject').value;
+                    const taskId = document.getElementById('bulkGradeTask').value;
+                    const semester = document.getElementById('bulkGradeSemester').value;
+                    const academicYear = document.getElementById('bulkGradeAcademicYear').value;
+                    
+                    if (subjectId && taskId && semester && academicYear) {
+                        refreshCurrentGradingList();
+                    }
+                }
+            }
+        }
+    });
 });
 
 // Authentication Functions
@@ -383,9 +420,8 @@ function showDashboardPage() {
     // Update user info
     document.getElementById('userName').textContent = currentUser.name;
     
-    // Load dashboard data
-    loadDashboardData();
-    showDashboard();
+    // Load welcome page as default
+    showWelcome();
 }
 
 function showLoginForm() {
@@ -403,6 +439,11 @@ function showRegisterForm() {
 }
 
 // Navigation Functions
+function showWelcome() {
+    setActiveMenu('welcome');
+    setActiveContent('welcomeContent');
+}
+
 function showDashboard() {
     setActiveMenu('dashboard');
     setActiveContent('dashboardContent');
@@ -447,12 +488,13 @@ function setActiveMenu(section) {
     });
     
     const menus = {
-        'dashboard': 0,
-        'students': 1,
-        'subjects': 2,
-        'tasks': 3,
-        'grades': 4,
-        'reports': 5
+        'welcome': 0,
+        'dashboard': 1,
+        'students': 2,
+        'subjects': 3,
+        'tasks': 4,
+        'grades': 5,
+        'reports': 6
     };
     
     document.querySelectorAll('.menu-item')[menus[section]].classList.add('active');
@@ -463,6 +505,18 @@ function setActiveContent(contentId) {
         section.classList.remove('active');
     });
     document.getElementById(contentId).classList.add('active');
+}
+
+function updateActiveMenu(functionName) {
+    document.querySelectorAll('.menu-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    
+    // Find menu item by onclick function
+    const menuItem = document.querySelector(`[onclick="${functionName}"]`);
+    if (menuItem) {
+        menuItem.classList.add('active');
+    }
 }
 
 // Data Loading Functions
@@ -570,14 +624,74 @@ async function loadStudents() {
 
 async function loadSubjects() {
     try {
+        console.log('Loading subjects from API...');
         const response = await fetch(`${API_BASE}/grades/subjects`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        subjects = await response.json();
+        
+        if (response.ok) {
+            subjects = await response.json();
+            console.log('Subjects loaded from API:', subjects);
+        } else {
+            console.error('Failed to load subjects, response status:', response.status);
+            subjects = [];
+        }
+        
+        // If no subjects exist, create default subjects
+        if (subjects.length === 0) {
+            console.log('No subjects found, creating default subjects...');
+            await createDefaultSubjects();
+        }
+        
         renderSubjectsTable();
     } catch (error) {
         console.error('Error loading subjects:', error);
         showNotification('Gagal memuat data mata pelajaran', 'error');
+        subjects = [];
+    }
+}
+
+async function createDefaultSubjects() {
+    const defaultSubjects = [
+        'Pendidikan Pancasila',
+        'Bahasa Indonesia', 
+        'Matematika',
+        'Ilmu Pengetahuan Alam',
+        'Ilmu Pengetahuan Sosial',
+        'Bahasa Inggris',
+        'Seni Rupa',
+        'Pendidikan Jasmani',
+        'Muatan Lokal'
+    ];
+    
+    try {
+        for (const subjectName of defaultSubjects) {
+            const response = await fetch(`${API_BASE}/grades/subjects`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ name: subjectName })
+            });
+            
+            if (response.ok) {
+                console.log(`Created subject: ${subjectName}`);
+            }
+        }
+        
+        // Reload subjects after creating defaults
+        const response = await fetch(`${API_BASE}/grades/subjects`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+            subjects = await response.json();
+            console.log('Subjects reloaded after creating defaults:', subjects);
+        }
+        
+    } catch (error) {
+        console.error('Error creating default subjects:', error);
     }
 }
 
@@ -722,31 +836,640 @@ function renderTasksBySubject(subjectsTasks) {
 }
 
 function startGradingTask(taskId, taskName, subjectId) {
-    // Set form values for task grading
-    document.getElementById('taskGradeSubject').value = subjectId;
-    document.getElementById('taskGradeTask').innerHTML = `<option value="${taskId}">${taskName}</option>`;
-    document.getElementById('taskGradeTask').value = taskId;
+    // Set form values for bulk grading
+    document.getElementById('bulkGradeSubject').value = subjectId;
     
-    // Switch to task grading tab
-    showGradeTab('task');
+    // Load tasks for the selected subject
+    loadTasksForBulkGrading().then(() => {
+        // Set the selected task
+        document.getElementById('bulkGradeTask').value = taskId;
+    });
+    
+    // Switch to grades content if not already there
+    showGrades();
     
     // Scroll to form
-    document.getElementById('taskGradeForm').scrollIntoView({ behavior: 'smooth' });
+    document.getElementById('gradeCriteriaForm').scrollIntoView({ behavior: 'smooth' });
     
     showNotification(`Siap memberi nilai untuk tugas: ${taskName}`, 'info');
 }
 
+async function loadTasksForBulkGrading() {
+    const subjectId = document.getElementById('bulkGradeSubject').value;
+    const taskSelect = document.getElementById('bulkGradeTask');
+    
+    console.log('loadTasksForBulkGrading called with subjectId:', subjectId);
+    
+    taskSelect.innerHTML = '<option value="">Pilih Tugas</option>';
+    
+    if (!subjectId) {
+        console.log('No subject selected, returning');
+        return;
+    }
+    
+    try {
+        console.log('Fetching tasks for subject:', subjectId);
+        const response = await fetch(`${API_BASE}/tasks/by-subject/${subjectId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Cache-Control': 'no-cache'
+            }
+        });
+        
+        console.log('Response status:', response.status);
+        
+        if (response.ok) {
+            const tasks = await response.json();
+            console.log('Tasks received:', tasks);
+            
+            // Clear existing options first to prevent duplicates
+            taskSelect.innerHTML = '<option value="">Pilih Tugas</option>';
+            
+            if (tasks.length === 0) {
+                const noTaskOption = document.createElement('option');
+                noTaskOption.value = '';
+                noTaskOption.textContent = 'Tidak ada tugas untuk mata pelajaran ini';
+                noTaskOption.disabled = true;
+                taskSelect.appendChild(noTaskOption);
+            } else {
+                // Use Set to track added task IDs and prevent duplicates
+                const addedTaskIds = new Set();
+                
+                tasks.forEach(task => {
+                    if (!addedTaskIds.has(task.id)) {
+                        const option = document.createElement('option');
+                        option.value = task.id;
+                        option.textContent = task.name;
+                        taskSelect.appendChild(option);
+                        addedTaskIds.add(task.id);
+                    }
+                });
+            }
+        } else {
+            console.error('Failed to fetch tasks:', response.statusText);
+            taskSelect.innerHTML = '<option value="">Error loading tasks</option>';
+        }
+    } catch (error) {
+        console.error('Error loading tasks for bulk grading:', error);
+        taskSelect.innerHTML = '<option value="">Error loading tasks</option>';
+    }
+}
+
+async function loadStudentsForBulkGrading() {
+    const subjectId = document.getElementById('bulkGradeSubject').value;
+    const taskId = document.getElementById('bulkGradeTask').value;
+    const semester = document.getElementById('bulkGradeSemester').value;
+    const academicYear = document.getElementById('bulkGradeAcademicYear').value;
+    
+    if (!subjectId || !taskId || !semester || !academicYear) {
+        showNotification('Harap lengkapi semua kriteria terlebih dahulu', 'warning');
+        return;
+    }
+    
+    showLoading();
+    
+    try {
+        // Get task details
+        const taskResponse = await fetch(`${API_BASE}/tasks/${taskId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!taskResponse.ok) {
+            throw new Error('Failed to get task details');
+        }
+        
+        const taskData = await taskResponse.json();
+        
+        // Get subject details
+        const subject = subjects.find(s => s.id == subjectId);
+        
+        if (!subject) {
+            throw new Error('Subject not found');
+        }
+        
+        // Get existing grades for this task with fresh data
+        const gradesResponse = await fetch(`${API_BASE}/grades?task_id=${taskId}&semester=${semester}&academic_year=${academicYear}&_t=${Date.now()}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            }
+        });
+        
+        if (!gradesResponse.ok) {
+            throw new Error('Failed to get existing grades');
+        }
+        
+        const existingGrades = await gradesResponse.json();
+        
+        // Show task info
+        document.getElementById('gradingTaskInfo').innerHTML = `
+            <strong>Mata Pelajaran:</strong> ${subject.name} |
+            <strong>Tugas:</strong> ${taskData.name} |
+            <strong>Semester:</strong> ${semester} |
+            <strong>Tahun Akademik:</strong> ${academicYear}
+        `;
+        
+        // Generate students list with clean default values
+        const studentsListHtml = students.map((student, index) => {
+            const existingGrade = existingGrades.find(g => g.student_id == student.id);
+            // Always start with empty value - no pre-filled grades
+            const gradeValue = '';
+            // Show actual status based on database
+            const gradeStatus = existingGrade ? 'existing' : 'new';
+            const statusText = existingGrade ? `Nilai tersimpan: ${existingGrade.grade_value}` : 'Belum dinilai';
+            
+            return `
+                <div class="student-grade-item">
+                    <div class="student-info">
+                        <div class="student-number">${index + 1}</div>
+                        <div class="student-name">${student.name}</div>
+                        <div class="grade-status ${gradeStatus}">${statusText}</div>
+                    </div>
+                    <div class="grade-input-wrapper">
+                        <input type="number" 
+                               class="grade-input auto-save-grade" 
+                               name="grade_${student.id}" 
+                               value=""
+                               min="0" 
+                               max="100" 
+                               placeholder="Masukkan nilai 0-100"
+                               data-student-id="${student.id}"
+                               data-student-name="${student.name}"
+                               data-existing-grade="${existingGrade ? existingGrade.grade_value : ''}"
+                               data-saved-grade="${existingGrade ? existingGrade.grade_value : ''}">>
+                        <button type="button" 
+                                class="btn-mini save-individual" 
+                                onclick="saveIndividualGrade(${student.id}, '${student.name.replace(/'/g, "\\'")}')"
+                                title="Simpan nilai untuk ${student.name}">
+                            💾
+                        </button>
+                        <div class="save-status" data-student-id="${student.id}"></div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        document.getElementById('studentsGradingList').innerHTML = studentsListHtml;
+        
+        // Add auto-save event listeners to all grade inputs
+        setupAutoSaveListeners();
+        
+        // Hide criteria form and show bulk form
+        document.getElementById('gradeCriteriaForm').style.display = 'none';
+        document.getElementById('bulkStudentsGradingForm').style.display = 'block';
+        
+        showNotification(`Menampilkan ${students.length} siswa untuk dinilai`, 'success');
+        
+    } catch (error) {
+        showNotification('Terjadi kesalahan saat memuat data siswa', 'error');
+        console.error('Load students for bulk grading error:', error);
+    } finally {
+        hideLoading();
+    }
+}
+
+// Setup auto-save listeners for grade inputs
+function setupAutoSaveListeners() {
+    const gradeInputs = document.querySelectorAll('.auto-save-grade');
+    
+    gradeInputs.forEach(input => {
+        let saveTimeout;
+        let lastSavedValue = input.value; // Track last saved value
+        
+        // Remove any existing listeners to prevent duplicates
+        input.removeEventListener('input', input.autoSaveInputHandler);
+        input.removeEventListener('blur', input.autoSaveBlurHandler);
+        
+        // Create handler functions
+        input.autoSaveInputHandler = function() {
+            const studentId = this.dataset.studentId;
+            const studentName = this.dataset.studentName;
+            const gradeValue = this.value.trim();
+            const statusDiv = document.querySelector(`[data-student-id="${studentId}"].save-status`);
+            
+            // Clear previous timeout
+            if (saveTimeout) {
+                clearTimeout(saveTimeout);
+            }
+            
+            // Only show saving if value actually changed
+            if (gradeValue !== lastSavedValue && gradeValue !== '') {
+                if (statusDiv) {
+                    statusDiv.innerHTML = '<span class="saving">💾 Menyimpan...</span>';
+                }
+                
+                // Set timeout to save after 1 second of no typing
+                saveTimeout = setTimeout(() => {
+                    autoSaveGrade(studentId, studentName, gradeValue, statusDiv, input).then(() => {
+                        lastSavedValue = gradeValue;
+                    });
+                }, 1000);
+            }
+        };
+        
+        input.autoSaveBlurHandler = function() {
+            if (saveTimeout) {
+                clearTimeout(saveTimeout);
+            }
+            
+            const studentId = this.dataset.studentId;
+            const studentName = this.dataset.studentName;
+            const gradeValue = this.value.trim();
+            const statusDiv = document.querySelector(`[data-student-id="${studentId}"].save-status`);
+            
+            // Only save if value changed and is valid
+            if (gradeValue && gradeValue !== '' && gradeValue !== lastSavedValue) {
+                autoSaveGrade(studentId, studentName, gradeValue, statusDiv, input).then(() => {
+                    lastSavedValue = gradeValue;
+                });
+            }
+        };
+        
+        // Add event listeners
+        input.addEventListener('input', input.autoSaveInputHandler);
+        input.addEventListener('blur', input.autoSaveBlurHandler);
+        
+        console.log(`Auto-save listeners added for student ${input.dataset.studentName}`);
+    });
+}
+
+// Auto-save individual grade
+async function autoSaveGrade(studentId, studentName, gradeValue, statusDiv, inputElement) {
+    console.log(`Auto-saving grade for ${studentName}: ${gradeValue}`);
+    
+    // Validate grade value
+    if (!gradeValue || gradeValue === '') {
+        if (statusDiv) {
+            statusDiv.innerHTML = '';
+        }
+        console.log('Empty grade value, skipping save');
+        return false;
+    }
+    
+    const grade = parseFloat(gradeValue);
+    if (isNaN(grade) || grade < 0 || grade > 100) {
+        if (statusDiv) {
+            statusDiv.innerHTML = '<span class="error">❌ Nilai tidak valid (0-100)</span>';
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 3000);
+        }
+        console.log('Invalid grade value:', gradeValue);
+        return false;
+    }
+    
+    // Get form data
+    const subjectId = document.getElementById('bulkGradeSubject').value;
+    const taskId = document.getElementById('bulkGradeTask').value;
+    const semester = document.getElementById('bulkGradeSemester').value;
+    const academicYear = document.getElementById('bulkGradeAcademicYear').value;
+    
+    console.log('Form data:', { subjectId, taskId, semester, academicYear });
+    
+    if (!subjectId || !taskId || !semester || !academicYear) {
+        if (statusDiv) {
+            statusDiv.innerHTML = '<span class="error">❌ Data form tidak lengkap</span>';
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 3000);
+        }
+        console.log('Incomplete form data');
+        return false;
+    }
+    
+    try {
+        if (statusDiv) {
+            statusDiv.innerHTML = '<span class="saving">💾 Menyimpan...</span>';
+        }
+        
+        const payload = {
+            student_id: parseInt(studentId),
+            subject_id: parseInt(subjectId),
+            task_id: parseInt(taskId),
+            grade_value: grade,
+            semester: semester,
+            academic_year: academicYear,
+            grade_type: 'task'
+        };
+        
+        console.log('Sending payload:', payload);
+        
+        const response = await fetch(`${API_BASE}/grades`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        console.log('Response status:', response.status);
+        
+        if (response.ok) {
+            const result = await response.json();
+            console.log('Save successful:', result);
+            
+            if (statusDiv) {
+                statusDiv.innerHTML = '<span class="success">✅ Tersimpan</span>';
+                setTimeout(() => {
+                    statusDiv.innerHTML = '';
+                }, 2000);
+            }
+            
+            // Update last saved value
+            if (inputElement) {
+                inputElement.dataset.lastSaved = gradeValue;
+                inputElement.dataset.savedGrade = gradeValue; // Update saved grade for load function
+                inputElement.dataset.existingGrade = gradeValue; // Update existing grade
+            }
+            
+            // Update grade status in the UI
+            const studentItem = document.querySelector(`input[data-student-id="${studentId}"]`).closest('.student-grade-item');
+            const gradeStatusDiv = studentItem.querySelector('.grade-status');
+            if (gradeStatusDiv) {
+                gradeStatusDiv.className = 'grade-status existing';
+                gradeStatusDiv.textContent = 'Sudah ada nilai';
+            }
+            
+            // Refresh grades data to update main table
+            setTimeout(() => {
+                loadGrades();
+                loadDashboardData();
+            }, 500);
+            
+            console.log(`Grade saved successfully for student ${studentName}: ${grade}`);
+            return true;
+            
+        } else {
+            const errorData = await response.json();
+            console.error('Save failed:', errorData);
+            
+            if (statusDiv) {
+                statusDiv.innerHTML = '<span class="error">❌ Gagal menyimpan</span>';
+                setTimeout(() => {
+                    statusDiv.innerHTML = '';
+                }, 3000);
+            }
+            return false;
+        }
+    } catch (error) {
+        console.error('Auto-save error:', error);
+        
+        if (statusDiv) {
+            statusDiv.innerHTML = '<span class="error">❌ Error koneksi</span>';
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 3000);
+        }
+        return false;
+    }
+}
+
+// Manual save for individual grade
+async function saveIndividualGrade(studentId, studentName) {
+    const inputElement = document.querySelector(`input[data-student-id="${studentId}"]`);
+    const statusDiv = document.querySelector(`[data-student-id="${studentId}"].save-status`);
+    
+    if (!inputElement) {
+        console.error('Input element not found for student:', studentId);
+        return;
+    }
+    
+    const gradeValue = inputElement.value.trim();
+    
+    if (!gradeValue || gradeValue === '') {
+        showNotification('Masukkan nilai terlebih dahulu', 'warning');
+        return;
+    }
+    
+    console.log(`Manual save triggered for ${studentName}: ${gradeValue}`);
+    
+    // Use the same auto-save function
+    const success = await autoSaveGrade(studentId, studentName, gradeValue, statusDiv, inputElement);
+    
+    if (success) {
+        showNotification(`Nilai ${gradeValue} berhasil disimpan untuk ${studentName}`, 'success');
+    } else {
+        showNotification(`Gagal menyimpan nilai untuk ${studentName}`, 'error');
+    }
+}
+
+// Refresh current grading list to show updated data
+async function refreshCurrentGradingList(savedStudentId, savedGrade) {
+    try {
+        // Get current form values
+        const subjectId = document.getElementById('bulkGradeSubject').value;
+        const taskId = document.getElementById('bulkGradeTask').value;
+        const semester = document.getElementById('bulkGradeSemester').value;
+        const academicYear = document.getElementById('bulkGradeAcademicYear').value;
+        
+        if (!subjectId || !taskId || !semester || !academicYear) {
+            return; // Can't refresh without complete data
+        }
+        
+        // Get fresh grades data
+        const gradesResponse = await fetch(`${API_BASE}/grades?task_id=${taskId}&semester=${semester}&academic_year=${academicYear}&_t=${Date.now()}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            }
+        });
+        
+        if (gradesResponse.ok) {
+            const freshGrades = await gradesResponse.json();
+            
+            // Update all student grade displays
+            students.forEach(student => {
+                const existingGrade = freshGrades.find(g => g.student_id == student.id);
+                const studentInput = document.querySelector(`input[data-student-id="${student.id}"]`);
+                const studentItem = studentInput?.closest('.student-grade-item');
+                const gradeStatusDiv = studentItem?.querySelector('.grade-status');
+                
+                if (studentInput && studentItem && gradeStatusDiv) {
+                    // Update input value if it doesn't have focus (to avoid overwriting while user is typing)
+                    if (document.activeElement !== studentInput) {
+                        studentInput.value = existingGrade ? existingGrade.grade_value : '';
+                    }
+                    
+                    // Update status
+                    if (existingGrade) {
+                        gradeStatusDiv.className = 'grade-status existing';
+                        gradeStatusDiv.textContent = 'Sudah ada nilai';
+                    } else {
+                        gradeStatusDiv.className = 'grade-status new';
+                        gradeStatusDiv.textContent = 'Belum dinilai';
+                    }
+                }
+            });
+            
+            console.log('Grading list refreshed with fresh data');
+        }
+    } catch (error) {
+        console.error('Error refreshing grading list:', error);
+    }
+}
+
+async function handleBulkTaskGrade(event) {
+    event.preventDefault();
+    
+    const subjectId = document.getElementById('bulkGradeSubject').value;
+    const taskId = document.getElementById('bulkGradeTask').value;
+    const semester = document.getElementById('bulkGradeSemester').value;
+    const academicYear = document.getElementById('bulkGradeAcademicYear').value;
+    
+    const gradeInputs = document.querySelectorAll('#studentsGradingList .grade-input');
+    const gradesToSave = [];
+    
+    gradeInputs.forEach(input => {
+        const studentId = input.dataset.studentId;
+        const gradeValue = input.value.trim();
+        
+        if (gradeValue && gradeValue !== '') {
+            const grade = parseFloat(gradeValue);
+            if (!isNaN(grade) && grade >= 0 && grade <= 100) {
+                gradesToSave.push({
+                    student_id: parseInt(studentId),
+                    subject_id: parseInt(subjectId),
+                    task_id: parseInt(taskId),
+                    grade_value: grade,
+                    semester: semester,
+                    academic_year: academicYear,
+                    grade_type: 'task'
+                });
+            }
+        }
+    });
+    
+    if (gradesToSave.length === 0) {
+        showNotification('Tidak ada nilai yang valid untuk disimpan', 'warning');
+        return;
+    }
+    
+    showLoading();
+    
+    try {
+        const savePromises = gradesToSave.map(grade => 
+            fetch(`${API_BASE}/grades`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(grade)
+            })
+        );
+        
+        await Promise.all(savePromises);
+        
+        showNotification(`Berhasil menyimpan ${gradesToSave.length} nilai`, 'success');
+        
+        // Refresh data
+        loadGrades();
+        loadDashboardData();
+        
+        // Reset form
+        document.getElementById('gradeCriteriaForm').style.display = 'block';
+        document.getElementById('bulkStudentsGradingForm').style.display = 'none';
+        document.getElementById('bulkGradeSubject').value = '';
+        document.getElementById('bulkGradeTask').value = '';
+        document.getElementById('bulkGradeSemester').value = '';
+        document.getElementById('bulkGradeAcademicYear').value = '';
+        
+    } catch (error) {
+        showNotification('Terjadi kesalahan saat menyimpan nilai', 'error');
+        console.error('Bulk grade save error:', error);
+    } finally {
+        hideLoading();
+    }
+}
+
+// Fungsi untuk memuat nilai tersimpan ke input fields
+function loadExistingGrades() {
+    const inputs = document.querySelectorAll('#bulk-grading-list input[type="number"], #studentsGradingList .grade-input');
+    let loadedCount = 0;
+    
+    inputs.forEach(input => {
+        const savedGrade = input.dataset.savedGrade;
+        if (savedGrade && savedGrade !== '0') {
+            input.value = savedGrade;
+            loadedCount++;
+        }
+    });
+    
+    if (loadedCount > 0) {
+        showNotification(`${loadedCount} nilai tersimpan telah dimuat`, 'success');
+    } else {
+        showNotification('Tidak ada nilai tersimpan untuk dimuat', 'info');
+    }
+}
+
+function fillAllGrades() {
+    const value = prompt('Masukkan nilai untuk semua siswa (0-100):');
+    if (value === null) return;
+    
+    const numValue = parseFloat(value);
+    if (isNaN(numValue) || numValue < 0 || numValue > 100) {
+        showNotification('Nilai harus berupa angka antara 0-100', 'error');
+        return;
+    }
+    
+    const gradeInputs = document.querySelectorAll('#studentsGradingList .grade-input');
+    gradeInputs.forEach(input => {
+        input.value = numValue;
+    });
+    
+    showNotification(`Mengisi semua siswa dengan nilai ${numValue}`, 'success');
+}
+
+function clearAllGrades() {
+    if (confirm('Apakah Anda yakin ingin mengosongkan semua nilai?')) {
+        const gradeInputs = document.querySelectorAll('#studentsGradingList .grade-input');
+        gradeInputs.forEach(input => {
+            input.value = '';
+        });
+        showNotification('Semua nilai telah dikosongkan', 'info');
+    }
+}
+
+function cancelBulkGrading() {
+    // Reset forms
+    document.getElementById('bulkGradeSubject').value = '';
+    document.getElementById('bulkGradeTask').value = '';
+    document.getElementById('bulkGradeSemester').value = '';
+    document.getElementById('bulkGradeAcademicYear').value = '';
+    
+    // Show criteria form and hide bulk form
+    document.getElementById('gradeCriteriaForm').style.display = 'block';
+    document.getElementById('bulkStudentsGradingForm').style.display = 'none';
+    
+    // Clear students list
+    document.getElementById('studentsGradingList').innerHTML = '';
+    document.getElementById('gradingTaskInfo').innerHTML = '';
+}
+
 async function loadGradeFormData() {
     try {
+        console.log('Loading grade form data...');
+        
         // Load students for grade form
         if (!students.length) {
+            console.log('Loading students...');
             await loadStudents();
         }
+        console.log('Students loaded:', students.length);
         
         // Load subjects
         if (!subjects.length) {
+            console.log('Loading subjects...');
             await loadSubjects();
         }
+        console.log('Subjects loaded:', subjects.length, subjects);
         
         // Populate student selects
         const studentSelects = [
@@ -755,31 +1478,42 @@ async function loadGradeFormData() {
         
         studentSelects.forEach(selectId => {
             const select = document.getElementById(selectId);
-            select.innerHTML = '<option value="">Pilih Siswa</option>';
-            students.forEach(student => {
-                const option = document.createElement('option');
-                option.value = student.id;
-                option.textContent = student.name;
-                select.appendChild(option);
-            });
+            if (select) {
+                select.innerHTML = '<option value="">Pilih Siswa</option>';
+                students.forEach(student => {
+                    const option = document.createElement('option');
+                    option.value = student.id;
+                    option.textContent = student.name;
+                    select.appendChild(option);
+                });
+            }
         });
         
         // Populate subject selects
         const subjectSelects = [
-            'taskGradeSubject', 'finalGradeSubject', 'subjectFilter'
+            'taskGradeSubject', 'finalGradeSubject', 'subjectFilter', 'bulkGradeSubject'
         ];
         
         subjectSelects.forEach(selectId => {
             const select = document.getElementById(selectId);
+            console.log(`Checking select: ${selectId}`, select ? 'found' : 'not found');
+            
+            if (!select) return; // Skip if element doesn't exist
+            
             const isFilter = selectId === 'subjectFilter';
             select.innerHTML = isFilter ? '<option value="">Semua Mata Pelajaran</option>' : '<option value="">Pilih Mata Pelajaran</option>';
+            
+            console.log(`Populating ${selectId} with ${subjects.length} subjects`);
             subjects.forEach(subject => {
                 const option = document.createElement('option');
                 option.value = subject.id;
                 option.textContent = subject.name;
                 select.appendChild(option);
+                console.log(`Added subject: ${subject.name} (${subject.id})`);
             });
         });
+        
+        console.log('Grade form data loaded successfully');
         
     } catch (error) {
         console.error('Error loading grade form data:', error);
@@ -1384,13 +2118,17 @@ async function loadTasksForSubject() {
     const subjectId = document.getElementById('taskGradeSubject').value;
     const taskSelect = document.getElementById('taskGradeTask');
     
+    // Clear all options first to prevent duplicates
     taskSelect.innerHTML = '<option value="">Pilih Tugas</option>';
     
     if (!subjectId) return;
     
     try {
         const response = await fetch(`${API_BASE}/tasks?subject_id=${subjectId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Cache-Control': 'no-cache'
+            }
         });
         
         if (!response.ok) {
@@ -1399,12 +2137,21 @@ async function loadTasksForSubject() {
         
         const subjectTasks = await response.json();
         
+        // Clear again to be absolutely sure
+        taskSelect.innerHTML = '<option value="">Pilih Tugas</option>';
+        
         if (subjectTasks && subjectTasks.length > 0) {
+            // Use Set to track added task IDs and prevent duplicates
+            const addedTaskIds = new Set();
+            
             subjectTasks.forEach(task => {
-                const option = document.createElement('option');
-                option.value = task.id;
-                option.textContent = task.name;
-                taskSelect.appendChild(option);
+                if (!addedTaskIds.has(task.id)) {
+                    const option = document.createElement('option');
+                    option.value = task.id;
+                    option.textContent = task.name;
+                    taskSelect.appendChild(option);
+                    addedTaskIds.add(task.id);
+                }
             });
         } else {
             const option = document.createElement('option');
@@ -1417,6 +2164,8 @@ async function loadTasksForSubject() {
         console.error('Error loading tasks for subject:', error);
         showNotification('Gagal memuat tugas untuk mata pelajaran ini', 'error');
         
+        // Clear and show error message
+        taskSelect.innerHTML = '<option value="">Pilih Tugas</option>';
         const option = document.createElement('option');
         option.value = '';
         option.textContent = 'Error memuat tugas';
@@ -1728,3 +2477,64 @@ setInterval(() => {
         validateToken();
     }
 }, 23 * 60 * 60 * 1000);
+
+// Delete Account Functions
+function confirmDeleteAccount() {
+    document.getElementById('confirmPassword').value = '';
+    document.getElementById('confirmDeletion').checked = false;
+    showModal('deleteAccountModal');
+}
+
+async function deleteAccount(event) {
+    event.preventDefault();
+    
+    const password = document.getElementById('confirmPassword').value;
+    const confirmed = document.getElementById('confirmDeletion').checked;
+    
+    if (!password) {
+        showNotification('Password harus diisi', 'error');
+        return;
+    }
+    
+    if (!confirmed) {
+        showNotification('Anda harus mencentang konfirmasi', 'error');
+        return;
+    }
+    
+    showLoading();
+    
+    try {
+        const response = await fetch(`${API_BASE}/auth/delete-account`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ password })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showNotification('Akun berhasil dihapus. Anda akan dialihkan...', 'success');
+            
+            // Clear all data and redirect to login
+            setTimeout(() => {
+                localStorage.removeItem('token');
+                localStorage.removeItem('currentUser');
+                token = null;
+                currentUser = null;
+                window.location.href = '/';
+            }, 2000);
+            
+        } else {
+            throw new Error(data.error || 'Gagal menghapus akun');
+        }
+    } catch (error) {
+        console.error('Delete account error:', error);
+        showNotification('Terjadi kesalahan: ' + error.message, 'error');
+    } finally {
+        hideLoading();
+        closeModal('deleteAccountModal');
+    }
+}

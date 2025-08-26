@@ -177,11 +177,24 @@ router.post('/', authenticateToken, (req, res) => {
     const { student_id, subject_id, task_id, grade_value, grade_type, semester, academic_year } = req.body;
     const classId = req.user.class_id;
 
+    console.log('Grade POST request received:', {
+        student_id,
+        subject_id,
+        task_id,
+        grade_value,
+        grade_type,
+        semester,
+        academic_year,
+        classId
+    });
+
     if (!student_id || !subject_id || grade_value === undefined || !semester || !academic_year) {
+        console.log('Missing required fields');
         return res.status(400).json({ error: 'Required fields: student_id, subject_id, grade_value, semester, academic_year' });
     }
 
     if (grade_value < 0 || grade_value > 100) {
+        console.log('Invalid grade value:', grade_value);
         return res.status(400).json({ error: 'Grade must be between 0 and 100' });
     }
 
@@ -245,31 +258,38 @@ router.post('/', authenticateToken, (req, res) => {
 
                         db.get(checkQuery, checkParams, (err, existingGrade) => {
                             if (err) {
+                                console.log('Database error checking existing grade:', err);
                                 return res.status(500).json({ error: 'Database error' });
                             }
 
                             if (existingGrade) {
+                                console.log('Updating existing grade:', existingGrade.id, 'from', existingGrade.grade_value, 'to', grade_value);
                                 // Update existing grade
                                 db.run(`UPDATE grades 
                                         SET grade_value = ?, updated_at = CURRENT_TIMESTAMP 
                                         WHERE id = ?`,
                                     [grade_value, existingGrade.id], function(err) {
                                         if (err) {
+                                            console.log('Error updating grade:', err);
                                             return res.status(500).json({ error: 'Failed to update grade' });
                                         }
 
-                                        res.json({ message: 'Grade updated successfully' });
+                                        console.log('Grade updated successfully:', this.changes, 'rows affected');
+                                        res.json({ message: 'Grade updated successfully', gradeId: existingGrade.id });
                                     });
                             } else {
+                                console.log('Creating new grade entry');
                                 // Insert new grade
                                 db.run(`INSERT INTO grades (student_id, subject_id, task_id, grade_value, grade_type, semester, academic_year) 
                                         VALUES (?, ?, ?, ?, ?, ?, ?)`,
                                     [student_id, subject_id, task_id || null, grade_value, finalGradeType, semester, academic_year], 
                                     function(err) {
                                         if (err) {
+                                            console.log('Error inserting new grade:', err);
                                             return res.status(500).json({ error: 'Failed to add grade' });
                                         }
 
+                                        console.log('New grade created successfully:', this.lastID);
                                         res.status(201).json({ 
                                             message: 'Grade added successfully',
                                             gradeId: this.lastID

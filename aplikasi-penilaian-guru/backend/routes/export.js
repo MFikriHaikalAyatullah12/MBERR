@@ -94,7 +94,7 @@ router.get('/excel', authenticateToken, (req, res) => {
                     // Create workbook
                     const workbook = XLSX.utils.book_new();
 
-                    // Create summary sheet with all subjects (final grades only)
+                    // Create summary sheet with enhanced calculations
                     const summaryData = [];
                     Array.from(allStudents).forEach(studentName => {
                         const studentRow = {
@@ -102,18 +102,32 @@ router.get('/excel', authenticateToken, (req, res) => {
                             'NIS': '-' // Will be filled from first subject data
                         };
 
-                        // Add final grades for each subject
+                        let totalGrades = 0;
+                        let subjectCount = 0;
+
+                        // Add final grades for each subject and calculate overall average
                         Object.keys(subjectData).forEach(subjectName => {
                             const studentData = subjectData[subjectName][studentName];
                             if (studentData) {
                                 if (studentRow['NIS'] === '-') {
                                     studentRow['NIS'] = studentData['NIS'];
                                 }
-                                studentRow[subjectName] = studentData['Nilai Akhir'] || '-';
+                                const finalGrade = studentData['Nilai Akhir'];
+                                if (finalGrade && !isNaN(parseFloat(finalGrade))) {
+                                    studentRow[subjectName] = parseFloat(finalGrade).toFixed(1);
+                                    totalGrades += parseFloat(finalGrade);
+                                    subjectCount++;
+                                } else {
+                                    studentRow[subjectName] = '-';
+                                }
                             } else {
                                 studentRow[subjectName] = '-';
                             }
                         });
+
+                        // Add calculated columns
+                        studentRow['Rata-rata Keseluruhan'] = subjectCount > 0 ? (totalGrades / subjectCount).toFixed(1) : '-';
+                        studentRow['Jumlah Mapel'] = subjectCount;
 
                         summaryData.push(studentRow);
                     });
@@ -123,33 +137,49 @@ router.get('/excel', authenticateToken, (req, res) => {
                             'Nama Siswa': 'Belum ada data',
                             'NIS': '-'
                         });
-                    }
-
-                    // Calculate averages for summary sheet
-                    if (summaryData.length > 0 && Object.keys(subjectData).length > 0) {
-                        const avgRow = {
+                    } else {
+                        // Add class statistics row for summary
+                        const summaryStatsRow = {
                             'Nama Siswa': 'RATA-RATA KELAS',
                             'NIS': '-'
                         };
-
+                        
+                        // Calculate class averages for each subject
                         Object.keys(subjectData).forEach(subjectName => {
-                            const subjectGrades = [];
+                            const values = [];
                             summaryData.forEach(student => {
-                                const grade = parseFloat(student[subjectName]);
-                                if (!isNaN(grade)) {
-                                    subjectGrades.push(grade);
+                                const value = parseFloat(student[subjectName]);
+                                if (!isNaN(value)) {
+                                    values.push(value);
                                 }
                             });
-
-                            if (subjectGrades.length > 0) {
-                                const average = subjectGrades.reduce((sum, grade) => sum + grade, 0) / subjectGrades.length;
-                                avgRow[subjectName] = average.toFixed(1);
+                            
+                            if (values.length > 0) {
+                                const average = values.reduce((sum, val) => sum + val, 0) / values.length;
+                                summaryStatsRow[subjectName] = average.toFixed(1);
                             } else {
-                                avgRow[subjectName] = '-';
+                                summaryStatsRow[subjectName] = '-';
                             }
                         });
-
-                        summaryData.push(avgRow);
+                        
+                        // Calculate overall class average
+                        const overallValues = [];
+                        summaryData.forEach(student => {
+                            const value = parseFloat(student['Rata-rata Keseluruhan']);
+                            if (!isNaN(value)) {
+                                overallValues.push(value);
+                            }
+                        });
+                        
+                        if (overallValues.length > 0) {
+                            const overallAverage = overallValues.reduce((sum, val) => sum + val, 0) / overallValues.length;
+                            summaryStatsRow['Rata-rata Keseluruhan'] = overallAverage.toFixed(1);
+                        } else {
+                            summaryStatsRow['Rata-rata Keseluruhan'] = '-';
+                        }
+                        
+                        summaryStatsRow['Jumlah Mapel'] = 'Total';
+                        summaryData.push(summaryStatsRow);
                     }
 
                     // Create summary worksheet
@@ -160,16 +190,22 @@ router.get('/excel', authenticateToken, (req, res) => {
                         { wch: 15 }, // NIS
                     ];
 
-                    for (let i = 2; i < summaryColCount; i++) {
+                    // Add width for subject columns
+                    const subjectCount = Object.keys(subjectData).length;
+                    for (let i = 2; i < 2 + subjectCount; i++) {
                         summaryColWidths.push({ wch: 15 });
                     }
+                    
+                    // Add width for calculation columns
+                    summaryColWidths.push({ wch: 20 }); // Rata-rata Keseluruhan
+                    summaryColWidths.push({ wch: 15 }); // Jumlah Mapel
 
                     summaryWorksheet['!cols'] = summaryColWidths;
                     
                     // Add summary sheet first
                     XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Ringkasan Nilai');
 
-                    // Create sheet for each subject with detailed grades
+                    // Create sheet for each subject with detailed grades and calculations
                     Object.keys(subjectData).forEach(subjectName => {
                         const students = subjectData[subjectName];
                         const excelData = Object.values(students);
@@ -180,65 +216,68 @@ router.get('/excel', authenticateToken, (req, res) => {
                                 'NIS': '-'
                             });
                         } else {
-                            // Calculate totals and averages for each student
+                            // Add calculations for each student
                             excelData.forEach(studentData => {
-                                let totalScore = 0;
+                                let taskTotal = 0;
                                 let taskCount = 0;
-                                let taskScores = [];
-
-                                // Collect all task scores (exclude 'Nama Siswa', 'NIS', and 'Nilai Akhir')
+                                
+                                // Calculate task totals and count
                                 Object.keys(studentData).forEach(key => {
                                     if (key !== 'Nama Siswa' && key !== 'NIS' && key !== 'Nilai Akhir') {
-                                        const score = parseFloat(studentData[key]);
-                                        if (!isNaN(score)) {
-                                            taskScores.push(score);
-                                            totalScore += score;
+                                        const value = parseFloat(studentData[key]);
+                                        if (!isNaN(value)) {
+                                            taskTotal += value;
                                             taskCount++;
                                         }
                                     }
                                 });
-
-                                // Add calculated fields
-                                studentData['Jumlah Nilai Tugas'] = taskCount > 0 ? totalScore.toFixed(1) : '-';
-                                studentData['Rata-rata Tugas'] = taskCount > 0 ? (totalScore / taskCount).toFixed(1) : '-';
                                 
-                                // Calculate final average including final grade if exists
-                                if (studentData['Nilai Akhir'] && !isNaN(parseFloat(studentData['Nilai Akhir']))) {
-                                    const finalGrade = parseFloat(studentData['Nilai Akhir']);
-                                    const taskAverage = taskCount > 0 ? totalScore / taskCount : 0;
-                                    // Weight: 70% tasks, 30% final
-                                    const finalAverage = taskCount > 0 ? 
-                                        (taskAverage * 0.7 + finalGrade * 0.3) : finalGrade;
-                                    studentData['Nilai Rata-rata Akhir'] = finalAverage.toFixed(1);
+                                // Add calculated columns
+                                studentData['Jumlah Nilai Tugas'] = taskCount > 0 ? taskTotal.toFixed(1) : '-';
+                                studentData['Rata-rata Tugas'] = taskCount > 0 ? (taskTotal / taskCount).toFixed(1) : '-';
+                                
+                                // Calculate overall average (tasks 70% + final 30%)
+                                const finalGrade = parseFloat(studentData['Nilai Akhir']);
+                                if (taskCount > 0 && !isNaN(finalGrade)) {
+                                    const taskAverage = taskTotal / taskCount;
+                                    const overallAverage = (taskAverage * 0.7) + (finalGrade * 0.3);
+                                    studentData['Rata-rata Keseluruhan'] = overallAverage.toFixed(1);
+                                } else if (taskCount > 0) {
+                                    studentData['Rata-rata Keseluruhan'] = (taskTotal / taskCount).toFixed(1);
+                                } else if (!isNaN(finalGrade)) {
+                                    studentData['Rata-rata Keseluruhan'] = finalGrade.toFixed(1);
                                 } else {
-                                    studentData['Nilai Rata-rata Akhir'] = studentData['Rata-rata Tugas'];
+                                    studentData['Rata-rata Keseluruhan'] = '-';
                                 }
                             });
-
-                            // Add summary row at the end
-                            const summaryRow = {
-                                'Nama Siswa': '=== STATISTIK KELAS ===',
-                                'NIS': ''
+                            
+                            // Add class statistics row
+                            const statsRow = {
+                                'Nama Siswa': 'STATISTIK KELAS',
+                                'NIS': '-'
                             };
-
-                            // Calculate class statistics for each column
-                            const firstStudent = excelData[0];
-                            Object.keys(firstStudent).forEach(key => {
+                            
+                            // Calculate class averages for each column
+                            Object.keys(excelData[0]).forEach(key => {
                                 if (key !== 'Nama Siswa' && key !== 'NIS') {
-                                    const scores = excelData
-                                        .map(student => parseFloat(student[key]))
-                                        .filter(score => !isNaN(score));
+                                    const values = [];
+                                    excelData.forEach(student => {
+                                        const value = parseFloat(student[key]);
+                                        if (!isNaN(value)) {
+                                            values.push(value);
+                                        }
+                                    });
                                     
-                                    if (scores.length > 0) {
-                                        const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
-                                        summaryRow[key] = `Rata: ${average.toFixed(1)}`;
+                                    if (values.length > 0) {
+                                        const average = values.reduce((sum, val) => sum + val, 0) / values.length;
+                                        statsRow[key] = average.toFixed(1);
                                     } else {
-                                        summaryRow[key] = '-';
+                                        statsRow[key] = '-';
                                     }
                                 }
                             });
-
-                            excelData.push(summaryRow);
+                            
+                            excelData.push(statsRow);
                         }
 
                         // Create worksheet for this subject
@@ -253,7 +292,15 @@ router.get('/excel', authenticateToken, (req, res) => {
 
                         // Add dynamic width for grade columns
                         for (let i = 2; i < colCount; i++) {
-                            colWidths.push({ wch: 15 });
+                            if (i === colCount - 3) { // Jumlah Nilai Tugas
+                                colWidths.push({ wch: 18 });
+                            } else if (i === colCount - 2) { // Rata-rata Tugas
+                                colWidths.push({ wch: 18 });
+                            } else if (i === colCount - 1) { // Rata-rata Keseluruhan
+                                colWidths.push({ wch: 20 });
+                            } else {
+                                colWidths.push({ wch: 15 });
+                            }
                         }
 
                         worksheet['!cols'] = colWidths;
