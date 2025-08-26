@@ -24,6 +24,71 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
 // API Base URL
 const API_BASE = '/api';
 
+// API timeout helper
+function fetchWithTimeout(url, options = {}, timeout = 30000) {
+    return Promise.race([
+        fetch(url, options),
+        new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Request timeout')), timeout)
+        )
+    ]);
+}
+
+// Helper function for safe DOM element access
+function safeGetElement(id) {
+    const element = document.getElementById(id);
+    if (!element) {
+        console.warn(`Element with id '${id}' not found`);
+    }
+    return element;
+}
+
+// Helper function for safe form data extraction
+function safeGetValue(id, defaultValue = '') {
+    const element = safeGetElement(id);
+    return element ? element.value : defaultValue;
+}
+
+// Data validation helpers
+function validateStudentData(name, nis) {
+    const errors = [];
+    
+    if (!name || name.trim().length === 0) {
+        errors.push('Nama siswa harus diisi');
+    }
+    
+    if (name && name.trim().length < 2) {
+        errors.push('Nama siswa minimal 2 karakter');
+    }
+    
+    if (nis && nis.trim().length > 0 && nis.trim().length < 3) {
+        errors.push('NIS minimal 3 karakter jika diisi');
+    }
+    
+    return errors;
+}
+
+function validateGradeData(gradeValue) {
+    const errors = [];
+    const grade = parseFloat(gradeValue);
+    
+    if (!gradeValue || gradeValue.trim().length === 0) {
+        errors.push('Nilai harus diisi');
+        return errors;
+    }
+    
+    if (isNaN(grade)) {
+        errors.push('Nilai harus berupa angka');
+        return errors;
+    }
+    
+    if (grade < 0 || grade > 100) {
+        errors.push('Nilai harus antara 0-100');
+    }
+    
+    return errors;
+}
+
 // Cache management functions
 function getCachedData(key) {
     const cached = appCache[key];
@@ -617,6 +682,11 @@ async function loadStudents() {
         const response = await fetch(`${API_BASE}/students`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         students = await response.json();
         
         // Cache the data
@@ -626,6 +696,8 @@ async function loadStudents() {
     } catch (error) {
         console.error('Error loading students:', error);
         showNotification('Gagal memuat data siswa', 'error');
+        students = []; // Fallback to empty array
+        renderStudentsTable();
     }
 }
 
@@ -654,7 +726,8 @@ async function loadSubjects() {
     } catch (error) {
         console.error('Error loading subjects:', error);
         showNotification('Gagal memuat data mata pelajaran', 'error');
-        subjects = [];
+        subjects = []; // Fallback to empty array
+        renderSubjectsTable();
     }
 }
 
@@ -713,11 +786,18 @@ async function loadTasks() {
         const response = await fetch(url, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         tasks = await response.json();
         renderTasksTable();
     } catch (error) {
         console.error('Error loading tasks:', error);
         showNotification('Gagal memuat data tugas', 'error');
+        tasks = []; // Fallback to empty array
+        renderTasksTable();
     }
 }
 
@@ -755,10 +835,10 @@ async function loadGrades() {
     try {
         showLoading();
         
-        const gradeType = document.getElementById('gradeTypeFilter').value;
-        const subject = document.getElementById('subjectFilter').value;
-        const semester = document.getElementById('semesterFilter').value;
-        const academicYear = document.getElementById('academicYearFilter').value;
+        const gradeType = safeGetValue('gradeTypeFilter');
+        const subject = safeGetValue('subjectFilter');
+        const semester = safeGetValue('semesterFilter');
+        const academicYear = safeGetValue('academicYearFilter');
         
         console.log('Loading grades with filters:', { gradeType, subject, semester, academicYear });
         
@@ -794,6 +874,8 @@ async function loadGrades() {
         console.error('Error loading grades:', error);
         hideLoading();
         showNotification('Gagal memuat data nilai: ' + error.message, 'error');
+        grades = []; // Fallback to empty array
+        renderGradesTable();
     }
 }
 
@@ -804,10 +886,16 @@ function filterGrades() {
 
 // Clear filters function
 function clearFilters() {
-    document.getElementById('gradeTypeFilter').value = '';
-    document.getElementById('subjectFilter').value = '';
-    document.getElementById('semesterFilter').value = '';
-    document.getElementById('academicYearFilter').value = '';
+    const gradeTypeFilter = safeGetElement('gradeTypeFilter');
+    const subjectFilter = safeGetElement('subjectFilter');
+    const semesterFilter = safeGetElement('semesterFilter');
+    const academicYearFilter = safeGetElement('academicYearFilter');
+    
+    if (gradeTypeFilter) gradeTypeFilter.value = '';
+    if (subjectFilter) subjectFilter.value = '';
+    if (semesterFilter) semesterFilter.value = '';
+    if (academicYearFilter) academicYearFilter.value = '';
+    
     loadGrades();
 }
 
@@ -816,10 +904,10 @@ async function exportGradesToExcel() {
     try {
         showLoading();
         
-        const gradeType = document.getElementById('gradeTypeFilter').value;
-        const subject = document.getElementById('subjectFilter').value;
-        const semester = document.getElementById('semesterFilter').value;
-        const academicYear = document.getElementById('academicYearFilter').value;
+        const gradeType = safeGetValue('gradeTypeFilter');
+        const subject = safeGetValue('subjectFilter');
+        const semester = safeGetValue('semesterFilter');
+        const academicYear = safeGetValue('academicYearFilter');
         
         let url = `${API_BASE}/export/grades?`;
         if (gradeType) url += `grade_type=${gradeType}&`;
@@ -1683,138 +1771,176 @@ function loadSubjectsForBulkGrading() {
 
 // Render Functions
 function renderStudentsTable() {
-    const tbody = document.getElementById('studentsTableBody');
-    tbody.innerHTML = '';
-    
-    if (students.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="text-center">Belum ada data siswa</td></tr>';
-        return;
+    try {
+        const tbody = safeGetElement('studentsTableBody');
+        if (!tbody) {
+            console.error('studentsTableBody element not found');
+            return;
+        }
+        
+        tbody.innerHTML = '';
+        
+        if (!students || students.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center">Belum ada data siswa</td></tr>';
+            return;
+        }
+        
+        students.forEach((student, index) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${student.name || 'Nama tidak tersedia'}</td>
+                <td>${student.nis || '-'}</td>
+                <td>
+                    <button onclick="editStudent(${student.id})" class="action-btn btn-edit">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                    <button onclick="deleteStudent(${student.id})" class="action-btn btn-delete">
+                        <i class="fas fa-trash"></i> Hapus
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    } catch (error) {
+        console.error('Error rendering students table:', error);
     }
-    
-    students.forEach((student, index) => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${index + 1}</td>
-            <td>${student.name}</td>
-            <td>${student.nis || '-'}</td>
-            <td>
-                <button onclick="editStudent(${student.id})" class="action-btn btn-edit">
-                    <i class="fas fa-edit"></i> Edit
-                </button>
-                <button onclick="deleteStudent(${student.id})" class="action-btn btn-delete">
-                    <i class="fas fa-trash"></i> Hapus
-                </button>
-            </td>
-        `;
-        tbody.appendChild(row);
-    });
 }
 
 function renderSubjectsTable() {
-    const tbody = document.getElementById('subjectsTableBody');
-    tbody.innerHTML = '';
-    
-    if (subjects.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" class="text-center">Belum ada data mata pelajaran</td></tr>';
-        return;
-    }
-    
-    subjects.forEach((subject, index) => {
-        const row = document.createElement('tr');
-        const statusClass = subject.is_custom ? 'custom' : 'default';
-        const statusText = subject.is_custom ? 'Kustom' : 'Default';
+    try {
+        const tbody = safeGetElement('subjectsTableBody');
+        if (!tbody) {
+            console.error('subjectsTableBody element not found');
+            return;
+        }
         
-        row.innerHTML = `
-            <td>${index + 1}</td>
-            <td>${subject.name}</td>
-            <td><span class="subject-status ${statusClass}">${statusText}</span></td>
-        `;
-        tbody.appendChild(row);
-    });
+        tbody.innerHTML = '';
+        
+        if (!subjects || subjects.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center">Belum ada data mata pelajaran</td></tr>';
+            return;
+        }
+        
+        subjects.forEach((subject, index) => {
+            const row = document.createElement('tr');
+            const statusClass = subject.is_custom ? 'custom' : 'default';
+            const statusText = subject.is_custom ? 'Kustom' : 'Default';
+            
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${subject.name || 'Nama tidak tersedia'}</td>
+                <td><span class="subject-status ${statusClass}">${statusText}</span></td>
+            `;
+            tbody.appendChild(row);
+        });
+    } catch (error) {
+        console.error('Error rendering subjects table:', error);
+    }
 }
 
 function renderTasksTable() {
-    const tbody = document.getElementById('tasksTableBody');
-    tbody.innerHTML = '';
-    
-    if (tasks.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center">Belum ada tugas</td></tr>';
-        return;
-    }
-    
-    tasks.forEach(task => {
-        const row = document.createElement('tr');
-        const dueDate = task.due_date ? new Date(task.due_date).toLocaleDateString('id-ID') : '-';
+    try {
+        const tbody = safeGetElement('tasksTableBody');
+        if (!tbody) {
+            console.error('tasksTableBody element not found');
+            return;
+        }
         
-        row.innerHTML = `
-            <td>${task.name}</td>
-            <td>${task.subject_name}</td>
-            <td>${task.description || '-'}</td>
-            <td>${dueDate}</td>
-            <td>
-                <button onclick="viewTaskGrades(${task.id})" class="action-btn btn-info">
-                    <i class="fas fa-eye"></i> Lihat Nilai
-                </button>
-                <button onclick="editTask(${task.id})" class="action-btn btn-edit">
-                    <i class="fas fa-edit"></i> Edit
-                </button>
-                <button onclick="deleteTask(${task.id})" class="action-btn btn-delete">
-                    <i class="fas fa-trash"></i> Hapus
-                </button>
-            </td>
-        `;
-        tbody.appendChild(row);
-    });
+        tbody.innerHTML = '';
+        
+        if (!tasks || tasks.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center">Belum ada tugas</td></tr>';
+            return;
+        }
+        
+        tasks.forEach(task => {
+            const row = document.createElement('tr');
+            const dueDate = task.due_date ? new Date(task.due_date).toLocaleDateString('id-ID') : '-';
+            
+            row.innerHTML = `
+                <td>${task.name || 'Nama tidak tersedia'}</td>
+                <td>${task.subject_name || 'Mata pelajaran tidak tersedia'}</td>
+                <td>${task.description || '-'}</td>
+                <td>${dueDate}</td>
+                <td>
+                    <button onclick="viewTaskGrades(${task.id})" class="action-btn btn-info">
+                        <i class="fas fa-eye"></i> Lihat Nilai
+                    </button>
+                    <button onclick="editTask(${task.id})" class="action-btn btn-edit">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                    <button onclick="deleteTask(${task.id})" class="action-btn btn-delete">
+                        <i class="fas fa-trash"></i> Hapus
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    } catch (error) {
+        console.error('Error rendering tasks table:', error);
+    }
 }
 
 function renderGradesTable() {
-    const tbody = document.getElementById('gradesTableBody');
-    const noDataMessage = document.getElementById('noGradesMessage');
-    const tableContainer = document.querySelector('.table-responsive');
-    
-    if (!tbody) return;
-    
-    tbody.innerHTML = '';
-    
-    if (grades.length === 0) {
-        tableContainer.style.display = 'none';
-        noDataMessage.style.display = 'block';
-        return;
-    }
-    
-    tableContainer.style.display = 'block';
-    noDataMessage.style.display = 'none';
-    
-    grades.forEach((grade, index) => {
-        const row = document.createElement('tr');
-        const gradeTypeClass = grade.grade_type || 'final';
-        const gradeTypeText = grade.grade_type === 'task' ? 'Nilai Tugas' : 'Nilai Akhir';
-        const taskName = grade.task_name || 'Nilai Akhir';
-        const createdDate = grade.created_at ? new Date(grade.created_at).toLocaleDateString('id-ID') : '-';
+    try {
+        const tbody = safeGetElement('gradesTableBody');
+        const noDataMessage = safeGetElement('noGradesMessage');
+        const tableContainer = document.querySelector('.table-responsive');
         
-        row.innerHTML = `
-            <td class="text-center">${index + 1}</td>
-            <td class="font-weight-medium">${grade.student_name}</td>
-            <td>${grade.subject_name}</td>
-            <td><span class="grade-type-badge ${gradeTypeClass}">${gradeTypeText}</span></td>
-            <td>${taskName}</td>
-            <td><span class="grade-value-display">${grade.grade_value}</span></td>
-            <td class="text-center">Semester ${grade.semester}</td>
-            <td class="text-center">${grade.academic_year}</td>
-            <td class="text-center">${createdDate}</td>
-            <td class="text-center">
-                <div class="action-buttons">
-                    <button onclick="editGrade(${grade.id})" class="action-btn btn-edit" title="Edit">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button onclick="deleteGrade(${grade.id})" class="action-btn btn-delete" title="Hapus">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </td>
-        `;
-        tbody.appendChild(row);
-    });
+        if (!tbody) {
+            console.error('gradesTableBody element not found');
+            return;
+        }
+        
+        tbody.innerHTML = '';
+        
+        if (!grades || grades.length === 0) {
+            if (tableContainer) tableContainer.style.display = 'none';
+            if (noDataMessage) noDataMessage.style.display = 'block';
+            return;
+        }
+        
+        if (tableContainer) tableContainer.style.display = 'block';
+        if (noDataMessage) noDataMessage.style.display = 'none';
+        
+        grades.forEach((grade, index) => {
+            const row = document.createElement('tr');
+            const gradeTypeClass = grade.grade_type || 'final';
+            const gradeTypeText = grade.grade_type === 'task' ? 'Nilai Tugas' : 'Nilai Akhir';
+            const taskName = grade.task_name || 'Nilai Akhir';
+            const createdDate = grade.created_at ? new Date(grade.created_at).toLocaleDateString('id-ID') : '-';
+            
+            row.innerHTML = `
+                <td class="text-center">${index + 1}</td>
+                <td class="font-weight-medium">${grade.student_name || 'Nama tidak tersedia'}</td>
+                <td>${grade.subject_name || 'Mata pelajaran tidak tersedia'}</td>
+                <td><span class="grade-type-badge ${gradeTypeClass}">${gradeTypeText}</span></td>
+                <td>${taskName}</td>
+                <td><span class="grade-value-display">${grade.grade_value || '-'}</span></td>
+                <td class="text-center">Semester ${grade.semester || '-'}</td>
+                <td class="text-center">${grade.academic_year || '-'}</td>
+                <td class="text-center">${createdDate}</td>
+                <td class="text-center">
+                    <div class="action-buttons">
+                        <button onclick="editGrade(${grade.id})" class="action-btn btn-edit" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="deleteGrade(${grade.id})" class="action-btn btn-delete" title="Hapus">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    } catch (error) {
+        console.error('Error rendering grades table:', error);
+        const tbody = safeGetElement('gradesTableBody');
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger">Error memuat data nilai</td></tr>';
+        }
+    }
 }
 
 // Export grades to Excel
@@ -1913,13 +2039,14 @@ async function handleStudentForm(event) {
     event.preventDefault();
     showLoading();
     
-    const studentId = document.getElementById('studentId').value;
-    const name = document.getElementById('studentName').value.trim();
-    const nis = document.getElementById('studentNis').value.trim();
+    const studentId = safeGetValue('studentId');
+    const name = safeGetValue('studentName').trim();
+    const nis = safeGetValue('studentNis').trim();
     
-    // Validasi input
-    if (!name) {
-        showNotification('Nama siswa harus diisi', 'error');
+    // Validasi input menggunakan helper function
+    const validationErrors = validateStudentData(name, nis);
+    if (validationErrors.length > 0) {
+        showNotification(validationErrors[0], 'error');
         hideLoading();
         return;
     }
