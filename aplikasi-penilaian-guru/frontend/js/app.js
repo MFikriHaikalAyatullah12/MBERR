@@ -3508,7 +3508,6 @@ setInterval(() => {
 // Delete Account Functions
 function confirmDeleteAccount() {
     document.getElementById('confirmPassword').value = '';
-    document.getElementById('confirmDeletion').checked = false;
     showModal('deleteAccountModal');
 }
 
@@ -3516,15 +3515,9 @@ async function deleteAccount(event) {
     event.preventDefault();
     
     const password = document.getElementById('confirmPassword').value;
-    const confirmed = document.getElementById('confirmDeletion').checked;
     
     if (!password) {
         showNotification('Password harus diisi', 'error');
-        return;
-    }
-    
-    if (!confirmed) {
-        showNotification('Anda harus mencentang konfirmasi', 'error');
         return;
     }
     
