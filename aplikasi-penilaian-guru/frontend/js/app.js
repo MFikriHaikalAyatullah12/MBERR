@@ -2256,38 +2256,65 @@ function loadSubjectsForBulkGrading() {
 // Render Functions
 function renderStudentsTable() {
     try {
-        const tbody = safeGetElement('studentsTableBody');
-        if (!tbody) {
-            console.error('studentsTableBody element not found');
+        const container = safeGetElement('studentsList');
+        if (!container) {
+            console.error('studentsList element not found');
             return;
         }
         
-        tbody.innerHTML = '';
+        container.innerHTML = '';
         
         if (!students || students.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center">Belum ada data siswa</td></tr>';
+            container.innerHTML = `
+                <div class="students-empty">
+                    <i class="fas fa-users"></i>
+                    <h3>Belum ada data siswa</h3>
+                    <p>Klik "Tambah Siswa" untuk menambahkan siswa pertama</p>
+                </div>
+            `;
             return;
         }
-        
+
+        // Add students stats
+        const statsDiv = document.createElement('div');
+        statsDiv.className = 'students-stats';
+        statsDiv.innerHTML = `
+            <div class="students-count">
+                <strong>${students.length}</strong> siswa terdaftar
+            </div>
+        `;
+        container.appendChild(statsDiv);
+
+        // Render each student
         students.forEach((student, index) => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${index + 1}</td>
-                <td>${student.name || 'Nama tidak tersedia'}</td>
-                <td>${student.nis || '-'}</td>
-                <td>
-                    <button onclick="editStudent(${student.id})" class="action-btn btn-edit">
-                        <i class="fas fa-edit"></i> Edit
+            const studentItem = document.createElement('div');
+            studentItem.className = 'student-item';
+            
+            studentItem.innerHTML = `
+                <div class="student-info">
+                    <div class="student-number">${index + 1}</div>
+                    <div class="student-details">
+                        <h4 class="student-name">${student.name || 'Nama tidak tersedia'}</h4>
+                        <p class="student-nis">
+                            <i class="fas fa-id-card"></i>
+                            ${student.nis || 'NIS belum diisi'}
+                        </p>
+                    </div>
+                </div>
+                <div class="student-actions">
+                    <button onclick="editStudent(${student.id})" class="student-action-btn edit" title="Edit Siswa">
+                        <i class="fas fa-edit"></i>
                     </button>
-                    <button onclick="deleteStudent(${student.id})" class="action-btn btn-delete">
-                        <i class="fas fa-trash"></i> Hapus
+                    <button onclick="deleteStudent(${student.id})" class="student-action-btn delete" title="Hapus Siswa">
+                        <i class="fas fa-trash"></i>
                     </button>
-                </td>
+                </div>
             `;
-            tbody.appendChild(row);
+            
+            container.appendChild(studentItem);
         });
     } catch (error) {
-        console.error('Error rendering students table:', error);
+        console.error('Error rendering students list:', error);
     }
 }
 
@@ -2325,44 +2352,77 @@ function renderSubjectsTable() {
 
 function renderTasksTable() {
     try {
-        const tbody = safeGetElement('tasksTableBody');
-        if (!tbody) {
-            console.error('tasksTableBody element not found');
+        const container = safeGetElement('tasksGrid');
+        if (!container) {
+            console.error('tasksGrid element not found');
             return;
         }
         
-        tbody.innerHTML = '';
+        container.innerHTML = '';
         
         if (!tasks || tasks.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center">Belum ada tugas</td></tr>';
+            container.innerHTML = `
+                <div class="tasks-empty">
+                    <i class="fas fa-tasks"></i>
+                    <h3>Belum ada tugas</h3>
+                    <p>Klik "Buat Tugas Baru" untuk menambahkan tugas pertama Anda</p>
+                </div>
+            `;
             return;
         }
-        
+
+        // Group tasks by subject for better organization
+        const tasksBySubject = {};
         tasks.forEach(task => {
-            const row = document.createElement('tr');
-            const dueDate = task.due_date ? new Date(task.due_date).toLocaleDateString('id-ID') : '-';
+            const subjectName = task.subject_name || 'Tanpa Mata Pelajaran';
+            if (!tasksBySubject[subjectName]) {
+                tasksBySubject[subjectName] = [];
+            }
+            tasksBySubject[subjectName].push(task);
+        });
+
+        // Create subject cards
+        Object.entries(tasksBySubject).forEach(([subjectName, subjectTasks]) => {
+            const subjectCard = document.createElement('div');
+            subjectCard.className = 'subject-card';
             
-            row.innerHTML = `
-                <td>${task.name || 'Nama tidak tersedia'}</td>
-                <td>${task.subject_name || 'Mata pelajaran tidak tersedia'}</td>
-                <td>${task.description || '-'}</td>
-                <td>${dueDate}</td>
-                <td>
-                    <button onclick="viewTaskGrades(${task.id})" class="action-btn btn-info">
-                        <i class="fas fa-eye"></i> Lihat Nilai
-                    </button>
-                    <button onclick="editTask(${task.id})" class="action-btn btn-edit">
-                        <i class="fas fa-edit"></i> Edit
-                    </button>
-                    <button onclick="deleteTask(${task.id})" class="action-btn btn-delete">
-                        <i class="fas fa-trash"></i> Hapus
-                    </button>
-                </td>
+            const tasksHtml = subjectTasks.map(task => {
+                const dueDate = task.due_date ? new Date(task.due_date).toLocaleDateString('id-ID') : null;
+                const isOverdue = dueDate && new Date(task.due_date) < new Date();
+                const status = isOverdue ? 'overdue' : 'active';
+                
+                return `
+                    <div class="subject-task-item">
+                        <div class="subject-task-name">${task.name || 'Nama tidak tersedia'}</div>
+                        <div class="subject-task-actions">
+                            <button onclick="viewTaskGrades(${task.id})" class="task-action-btn primary" title="Lihat Nilai">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button onclick="editTask(${task.id})" class="task-action-btn edit" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="deleteTask(${task.id})" class="task-action-btn danger" title="Hapus">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            subjectCard.innerHTML = `
+                <div class="subject-header">
+                    <h3 class="subject-name">${subjectName}</h3>
+                    <span class="subject-task-count">${subjectTasks.length} tugas</span>
+                </div>
+                <div class="subject-tasks">
+                    ${tasksHtml}
+                </div>
             `;
-            tbody.appendChild(row);
+            
+            container.appendChild(subjectCard);
         });
     } catch (error) {
-        console.error('Error rendering tasks table:', error);
+        console.error('Error rendering tasks:', error);
     }
 }
 

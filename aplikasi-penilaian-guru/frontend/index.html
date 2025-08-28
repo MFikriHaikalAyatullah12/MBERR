@@ -328,20 +328,9 @@
                         </button>
                     </div>
 
-                    <div class="table-container">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>No</th>
-                                    <th>Nama Siswa</th>
-                                    <th>NIS</th>
-                                    <th>Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody id="studentsTableBody">
-                                <!-- Students data will be loaded here -->
-                            </tbody>
-                        </table>
+                    <!-- Compact Students List -->
+                    <div class="students-list" id="studentsList">
+                        <!-- Students data will be loaded here -->
                     </div>
                 </div>
 
@@ -406,31 +395,17 @@
                         </button>
                     </div>
 
-                    <div class="filter-section">
-                        <div class="filter-group">
-                            <label>Filter berdasarkan mata pelajaran:</label>
-                            <select id="taskSubjectFilter">
+                    <div class="filter-section compact">
+                        <div class="filter-group inline">
+                            <select id="taskSubjectFilter" onchange="filterTasks()">
                                 <option value="">Semua Mata Pelajaran</option>
                             </select>
-                            <button onclick="filterTasks()" class="btn btn-secondary">Filter</button>
                         </div>
                     </div>
 
-                    <div class="table-container">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Nama Tugas</th>
-                                    <th>Mata Pelajaran</th>
-                                    <th>Deskripsi</th>
-                                    <th>Tenggat Waktu</th>
-                                    <th>Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tasksTableBody">
-                                <!-- Tasks data will be loaded here -->
-                            </tbody>
-                        </table>
+                    <!-- Compact Tasks Grid -->
+                    <div class="tasks-grid" id="tasksGrid">
+                        <!-- Tasks will be loaded here -->
                     </div>
                 </div>
 
