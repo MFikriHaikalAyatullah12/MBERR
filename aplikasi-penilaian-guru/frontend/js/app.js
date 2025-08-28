@@ -34,6 +34,37 @@ function fetchWithTimeout(url, options = {}, timeout = 30000) {
     ]);
 }
 
+// Enhanced API request helper with token validation
+async function apiRequest(url, options = {}) {
+    try {
+        // Add authorization header if token exists
+        if (token) {
+            options.headers = {
+                ...options.headers,
+                'Authorization': `Bearer ${token}`
+            };
+        }
+
+        const response = await fetchWithTimeout(url, options);
+        
+        // Check if token is invalid/expired
+        if (response.status === 401) {
+            console.warn('Token expired or invalid');
+            // Only redirect to login if user is actively using the app
+            if (document.hasFocus()) {
+                clearSession();
+                showLoginPage();
+                showNotification('Sesi telah berakhir, silakan login kembali', 'warning');
+            }
+            throw new Error('Unauthorized');
+        }
+        
+        return response;
+    } catch (error) {
+        throw error;
+    }
+}
+
 // Helper function for safe DOM element access
 function safeGetElement(id) {
     const element = document.getElementById(id);
@@ -212,12 +243,122 @@ function saveSession(userData, authToken) {
     localStorage.setItem(SESSION_KEY, JSON.stringify({
         token: authToken,
         timestamp: Date.now(),
-        userId: userData.id
+        userId: userData.id,
+        userName: userData.name,
+        userEmail: userData.email,
+        currentPage: getCurrentPageState()
     }));
     
     // Keep full user data in memory
     currentUser = userData;
     token = authToken;
+}
+
+// Save current page state
+function saveCurrentPageState() {
+    const session = getStoredSession();
+    if (session) {
+        session.currentPage = getCurrentPageState();
+        localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    }
+}
+
+// Get current page state
+function getCurrentPageState() {
+    const activeMenu = document.querySelector('.menu-item.active');
+    const activeContent = document.querySelector('.content-section:not([style*="display: none"])');
+    
+    return {
+        menu: activeMenu ? activeMenu.getAttribute('onclick').match(/show(\w+)/)?.[1] : 'Welcome',
+        content: activeContent ? activeContent.id : 'welcomeContent'
+    };
+}
+
+// Load user from session without server validation
+async function loadUserFromSession() {
+    try {
+        const session = getStoredSession();
+        if (session && session.token) {
+            // Create user object from session data
+            currentUser = {
+                id: session.userId,
+                name: session.userName,
+                email: session.userEmail
+            };
+            
+            token = session.token;
+            
+            // Show dashboard immediately
+            showDashboardPage();
+            
+            // Restore last page if available
+            if (session.currentPage) {
+                restorePageState(session.currentPage);
+            }
+            
+            // Validate token in background to ensure it's still valid
+            validateTokenInBackground();
+        } else {
+            showLoginPage();
+        }
+    } catch (error) {
+        console.error('Error loading user from session:', error);
+        showLoginPage();
+    }
+}
+
+// Validate token in background without redirecting
+async function validateTokenInBackground() {
+    try {
+        const response = await fetch(`${API_BASE}/auth/me`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            // Update user data if server returns updated info
+            currentUser = data.user;
+            // Update session with fresh data
+            saveSession(currentUser, token);
+        } else {
+            // Token expired or invalid - only redirect if user tries to perform an action
+            console.warn('Token validation failed in background');
+        }
+    } catch (error) {
+        console.error('Background token validation error:', error);
+        // Don't redirect on network errors, just log
+    }
+}
+
+// Restore page state
+function restorePageState(pageState) {
+    try {
+        // Map the page state to function calls
+        const pageMap = {
+            'Welcome': showWelcome,
+            'Dashboard': showDashboard,
+            'Students': showStudents,
+            'Classes': showClasses,
+            'Tasks': showTasks,
+            'Grades': showGrades,
+            'Export': showExport,
+            'Settings': showSettings
+        };
+        
+        const showFunction = pageMap[pageState.menu];
+        if (showFunction && typeof showFunction === 'function') {
+            // Small delay to ensure dashboard is fully loaded
+            setTimeout(() => {
+                showFunction();
+            }, 100);
+        }
+    } catch (error) {
+        console.error('Error restoring page state:', error);
+        // Fallback to welcome page
+        showWelcome();
+    }
 }
 
 function getStoredSession() {
@@ -350,7 +491,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const session = getStoredSession();
     if (session && session.token) {
         token = session.token;
-        validateToken();
+        // Load user data from session or fetch from server
+        loadUserFromSession();
     } else {
         showLoginPage();
     }
@@ -383,14 +525,17 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Set up periodic session validation
     setInterval(() => {
-        if (token && currentUser) {
-            validateToken();
+        if (token && currentUser && document.hasFocus()) {
+            validateTokenInBackground();
         }
-    }, 30 * 60 * 1000); // Check every 30 minutes
+    }, 30 * 60 * 1000); // Check every 30 minutes only when app is in focus
     
-    // Add page visibility listener to refresh data when user returns to tab
+    // Add page visibility listener to validate token when user returns to tab
     document.addEventListener('visibilitychange', function() {
         if (!document.hidden && token && currentUser) {
+            // Validate token when user returns to the tab
+            validateTokenInBackground();
+            
             // Refresh data when user returns to the tab
             const currentSection = document.querySelector('.content-section:not([style*="display: none"])');
             if (currentSection && currentSection.id === 'grades') {
@@ -1054,6 +1199,11 @@ function setActiveMenu(section) {
     };
     
     document.querySelectorAll('.menu-item')[menus[section]].classList.add('active');
+    
+    // Save current page state to session
+    if (currentUser && token) {
+        saveCurrentPageState();
+    }
 }
 
 function setActiveContent(contentId) {
@@ -1061,6 +1211,11 @@ function setActiveContent(contentId) {
         section.classList.remove('active');
     });
     document.getElementById(contentId).classList.add('active');
+    
+    // Save current page state to session
+    if (currentUser && token) {
+        saveCurrentPageState();
+    }
 }
 
 function updateActiveMenu(functionName) {
