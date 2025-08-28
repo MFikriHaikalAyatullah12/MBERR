@@ -1170,8 +1170,7 @@ function showGrades() {
     // Load data in parallel for better performance
     Promise.all([
         loadGrades(),
-        loadGradeFormData(),
-        loadTasksBySubject()
+        loadGradeFormData()
     ]).catch(error => {
         console.error('Error loading grades page data:', error);
         showNotification('Terjadi kesalahan saat memuat data penilaian', 'error');
@@ -1613,89 +1612,24 @@ function editGrade(gradeId) {
 }
 
 async function loadTasksBySubject() {
-    try {
-        const response = await fetch(`${API_BASE}/grades/tasks-by-subject`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const subjectsTasks = await response.json();
-        renderTasksBySubject(subjectsTasks);
-    } catch (error) {
-        console.error('Error loading tasks by subject:', error);
-        showNotification('Gagal memuat tugas per mata pelajaran', 'error');
-    }
+    // Function disabled - Tasks by Subject section removed from Grades page
+    // This functionality is now available in the Tasks page
+    console.log('loadTasksBySubject function disabled');
 }
 
 function renderTasksBySubject(subjectsTasks) {
-    const container = document.getElementById('tasksBySubjectContainer');
-    if (!container) return;
-    
-    container.innerHTML = '';
-    
-    if (subjectsTasks.length === 0) {
-        container.innerHTML = '<p class="text-center">Belum ada mata pelajaran atau tugas</p>';
-        return;
-    }
-    
-    subjectsTasks.forEach(subject => {
-        const subjectCard = document.createElement('div');
-        subjectCard.className = 'subject-card';
-        
-        let tasksHtml = '';
-        if (subject.tasks.length === 0) {
-            tasksHtml = '<p class="no-tasks">Belum ada tugas untuk mata pelajaran ini</p>';
-        } else {
-            tasksHtml = subject.tasks.map(task => `
-                <div class="task-item">
-                    <div class="task-info">
-                        <h5>${task.name}</h5>
-                        ${task.description ? `<p class="task-desc">${task.description}</p>` : ''}
-                        ${task.due_date ? `<p class="task-due">Deadline: ${new Date(task.due_date).toLocaleDateString('id-ID')}</p>` : ''}
-                    </div>
-                    <div class="task-actions">
-                        <button onclick="startGradingTask(${task.id}, '${task.name}', ${subject.subject_id})" class="btn btn-primary">
-                            <i class="fas fa-edit"></i> Beri Nilai
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        }
-        
-        subjectCard.innerHTML = `
-            <div class="subject-header">
-                <h4><i class="fas fa-book"></i> ${subject.subject_name}</h4>
-                <span class="task-count">${subject.tasks.length} tugas</span>
-            </div>
-            <div class="tasks-list">
-                ${tasksHtml}
-            </div>
-        `;
-        
-        container.appendChild(subjectCard);
-    });
+    // Function disabled - Tasks by Subject section removed from Grades page
+    console.log('renderTasksBySubject function disabled');
 }
 
 function startGradingTask(taskId, taskName, subjectId) {
-    // Set form values for bulk grading
-    document.getElementById('bulkGradeSubject').value = subjectId;
+    // Function disabled - Direct grading from subject cards removed
+    // Users should now use the standard bulk grading forms below
+    console.log('startGradingTask function disabled - use bulk grading forms instead');
     
-    // Load tasks for the selected subject
-    loadTasksForBulkGrading().then(() => {
-        // Set the selected task
-        document.getElementById('bulkGradeTask').value = taskId;
-    });
-    
-    // Switch to grades content if not already there
-    showGrades();
-    
-    // Scroll to form
-    document.getElementById('gradeCriteriaForm').scrollIntoView({ behavior: 'smooth' });
-    
-    showNotification(`Siap memberi nilai untuk tugas: ${taskName}`, 'info');
+    // Redirect to tasks page instead
+    showTasks();
+    showNotification('Silakan gunakan halaman Tugas untuk memberi nilai', 'info');
 }
 
 async function loadTasksForBulkGrading() {
