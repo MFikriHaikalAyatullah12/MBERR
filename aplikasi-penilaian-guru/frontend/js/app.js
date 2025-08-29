@@ -3536,16 +3536,20 @@ async function deleteAccount(event) {
         const data = await response.json();
         
         if (response.ok) {
-            showNotification('Akun berhasil dihapus. Anda akan dialihkan...', 'success');
+            showNotification('Akun berhasil dihapus. Anda akan dialihkan ke halaman login...', 'success');
             
-            // Clear all data and redirect to login
+            // Clear all data and redirect to login page
             setTimeout(() => {
-                localStorage.removeItem('token');
-                localStorage.removeItem('currentUser');
-                token = null;
-                currentUser = null;
-                window.location.href = '/';
-            }, 2000);
+                clearSession();
+                showLoginPage();
+                // Clear any forms and reset states
+                document.getElementById('confirmPassword').value = '';
+                // Clear any cached data
+                students = [];
+                subjects = [];
+                tasks = [];
+                grades = [];
+            }, 1500);
             
         } else {
             throw new Error(data.error || 'Gagal menghapus akun');
