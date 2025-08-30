@@ -92,8 +92,15 @@ function validateStudentData(name, nis) {
         errors.push('Nama siswa minimal 2 karakter');
     }
     
-    if (nis && nis.trim().length > 0 && nis.trim().length < 3) {
-        errors.push('NIS minimal 3 karakter jika diisi');
+    if (nis && nis.trim().length > 0) {
+        // Check if NIS contains only numbers
+        if (!/^\d+$/.test(nis.trim())) {
+            errors.push('NIS hanya boleh berisi angka');
+        }
+        
+        if (nis.trim().length < 3) {
+            errors.push('NIS minimal 3 digit jika diisi');
+        }
     }
     
     return errors;
@@ -502,6 +509,41 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Populate academic year dropdowns with dynamic years
     populateAcademicYearDropdowns();
+    
+    // Add numeric validation for NIS input
+    setTimeout(() => {
+        const studentNisInput = document.getElementById('studentNis');
+        if (studentNisInput) {
+            // Prevent non-numeric characters from being entered
+            studentNisInput.addEventListener('input', function(e) {
+                // Remove any non-numeric characters
+                let value = e.target.value.replace(/[^0-9]/g, '');
+                e.target.value = value;
+            });
+            
+            // Prevent pasting non-numeric content
+            studentNisInput.addEventListener('paste', function(e) {
+                e.preventDefault();
+                let paste = (e.clipboardData || window.clipboardData).getData('text');
+                let numericPaste = paste.replace(/[^0-9]/g, '');
+                e.target.value = numericPaste;
+            });
+            
+            // Prevent non-numeric key presses
+            studentNisInput.addEventListener('keypress', function(e) {
+                // Allow backspace, delete, arrow keys, and tab
+                if (e.key === 'Backspace' || e.key === 'Delete' || 
+                    e.key === 'ArrowLeft' || e.key === 'ArrowRight' || 
+                    e.key === 'Tab') {
+                    return;
+                }
+                // Only allow numeric characters
+                if (!/[0-9]/.test(e.key)) {
+                    e.preventDefault();
+                }
+            });
+        }
+    }, 500);
     
     // Add event listener for task grade subject dropdown
     setTimeout(() => {
@@ -1114,6 +1156,9 @@ function showDashboardPage() {
     // Update user info
     document.getElementById('userName').textContent = currentUser.name;
     
+    // Initialize sidebar state
+    initializeSidebar();
+    
     // Load welcome page as default
     showWelcome();
 }
@@ -1134,29 +1179,34 @@ function showRegisterForm() {
 
 // Navigation Functions
 function showWelcome() {
+    autoCloseSidebar(); // Auto-close sidebar with delay
     setActiveMenu('welcome');
     setActiveContent('welcomeContent');
 }
 
 function showDashboard() {
+    autoCloseSidebar(); // Auto-close sidebar with delay
     setActiveMenu('dashboard');
     setActiveContent('dashboardContent');
     loadDashboardData();
 }
 
 function showStudents() {
+    autoCloseSidebar(); // Auto-close sidebar with delay
     setActiveMenu('students');
     setActiveContent('studentsContent');
     loadStudents();
 }
 
 function showSubjects() {
+    autoCloseSidebar(); // Auto-close sidebar with delay
     setActiveMenu('subjects');
     setActiveContent('subjectsContent');
     loadSubjects();
 }
 
 function showTasks() {
+    autoCloseSidebar(); // Auto-close sidebar with delay
     setActiveMenu('tasks');
     setActiveContent('tasksContent');
     loadTasks();
@@ -1164,6 +1214,7 @@ function showTasks() {
 }
 
 function showGrades() {
+    autoCloseSidebar(); // Auto-close sidebar with delay
     setActiveMenu('grades');
     setActiveContent('gradesContent');
     
@@ -1178,6 +1229,7 @@ function showGrades() {
 }
 
 function showReports() {
+    autoCloseSidebar(); // Auto-close sidebar with delay
     setActiveMenu('reports');
     setActiveContent('reportsContent');
 }
@@ -3970,3 +4022,80 @@ function cancelBulkFinalGrading() {
     document.getElementById('studentsFinalGradingList').innerHTML = '';
     document.getElementById('finalGradingInfo').innerHTML = '';
 }
+
+// Sidebar toggle functions
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    
+    if (sidebar && overlay) {
+        const isVisible = sidebar.classList.contains('sidebar-visible');
+        
+        if (isVisible) {
+            // Hide sidebar
+            sidebar.classList.remove('sidebar-visible');
+            sidebar.classList.add('sidebar-hidden');
+            overlay.classList.remove('active');
+        } else {
+            // Show sidebar
+            sidebar.classList.remove('sidebar-hidden');
+            sidebar.classList.add('sidebar-visible');
+            overlay.classList.add('active');
+        }
+    }
+}
+
+function closeSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    
+    if (sidebar && overlay) {
+        sidebar.classList.remove('sidebar-visible');
+        sidebar.classList.add('sidebar-hidden');
+        overlay.classList.remove('active');
+    }
+}
+
+// Auto-close sidebar when menu item is clicked
+function autoCloseSidebar() {
+    // Add small delay for better UX
+    setTimeout(() => {
+        closeSidebar();
+    }, 150);
+}
+
+// Initialize sidebar state based on screen size
+function initializeSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    
+    if (sidebar) {
+        // Always start with sidebar hidden for all screen sizes
+        sidebar.classList.remove('sidebar-visible');
+        sidebar.classList.add('sidebar-hidden');
+        
+        // Ensure overlay is hidden
+        if (overlay) {
+            overlay.classList.remove('active');
+        }
+    }
+}
+
+// Handle window resize
+window.addEventListener('resize', function() {
+    initializeSidebar();
+    
+    // Close sidebar on mobile if window is resized to desktop
+    if (window.innerWidth > 768) {
+        const overlay = document.getElementById('sidebarOverlay');
+        if (overlay) {
+            overlay.classList.remove('active');
+        }
+    }
+});
+
+// Initialize sidebar when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Add a small delay to ensure DOM is fully loaded
+    setTimeout(initializeSidebar, 100);
+});

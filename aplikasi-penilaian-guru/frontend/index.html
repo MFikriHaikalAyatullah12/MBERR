@@ -129,9 +129,14 @@
     <div id="dashboardPage" class="page">
         <!-- Navigation -->
         <nav class="navbar">
-            <div class="nav-brand">
-                <i class="fas fa-graduation-cap"></i>
-                <span>Penilaian Guru SD</span>
+            <div class="nav-left">
+                <button id="menuToggle" class="menu-toggle" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="nav-brand">
+                    <i class="fas fa-graduation-cap"></i>
+                    <span>Penilaian Guru SD</span>
+                </div>
             </div>
             <div class="nav-user">
                 <span id="userName">Loading...</span>
@@ -146,10 +151,16 @@
 
         <!-- Main Content -->
         <div class="main-content">
+            <!-- Sidebar Overlay -->
+            <div id="sidebarOverlay" class="sidebar-overlay" onclick="closeSidebar()"></div>
+            
             <!-- Sidebar -->
-            <aside class="sidebar">
+            <aside id="sidebar" class="sidebar sidebar-hidden">
                 <div class="sidebar-header">
                     <h3 id="className">Kelas</h3>
+                    <button class="sidebar-close" onclick="closeSidebar()">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
                 <ul class="sidebar-menu">
                     <li>
@@ -768,8 +779,14 @@
                     </div>
                     <div class="form-group">
                         <label for="studentNis">NIS (Nomor Induk Siswa)</label>
-                        <input type="text" id="studentNis" placeholder="Wajib diisi jika nama siswa sama dengan siswa di kelas lain">
-                        <small class="form-help">NIS wajib diisi jika nama siswa sudah ada di kelas lain untuk membedakan siswa</small>
+                        <input type="number" 
+                               id="studentNis" 
+                               placeholder="Wajib diisi jika nama siswa sama dengan siswa di kelas lain"
+                               pattern="[0-9]*"
+                               inputmode="numeric"
+                               min="0"
+                               step="1">
+                        <small class="form-help">NIS wajib diisi jika nama siswa sudah ada di kelas lain untuk membedakan siswa (hanya angka)</small>
                     </div>
                 </div>
                 <div class="modal-footer">
