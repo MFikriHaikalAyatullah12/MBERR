@@ -129,9 +129,9 @@ router.post('/login', (req, res) => {
     }
 });
 
-// Get available classes - show all classes regardless of assignment
+// Get available classes - hanya tampilkan Kelas 1-6
 router.get('/classes', (req, res) => {
-    db.all(`SELECT id, name, description FROM classes ORDER BY id`,
+    db.all(`SELECT id, name, description FROM classes WHERE id <= 6 ORDER BY id`,
         (err, classes) => {
             if (err) {
                 return res.status(500).json({ error: 'Database error' });

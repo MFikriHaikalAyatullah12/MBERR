@@ -114,7 +114,7 @@ function initializeDatabase() {
             UNIQUE(user_id, preference_key)
         )`);
 
-        // Insert data kelas default
+        // Insert data kelas default - hanya Kelas 1-6
         db.run(`INSERT OR IGNORE INTO classes (id, name, description) VALUES 
             (1, 'Kelas 1', 'Kelas 1 SD'),
             (2, 'Kelas 2', 'Kelas 2 SD'),
@@ -122,6 +122,15 @@ function initializeDatabase() {
             (4, 'Kelas 4', 'Kelas 4 SD'),
             (5, 'Kelas 5', 'Kelas 5 SD'),
             (6, 'Kelas 6', 'Kelas 6 SD')`);
+
+        // Hapus kelas tambahan jika ada
+        db.run(`DELETE FROM classes WHERE id > 6`);
+        db.run(`DELETE FROM students WHERE class_id > 6`);
+        db.run(`DELETE FROM subjects WHERE class_id > 6`);
+        db.run(`DELETE FROM tasks WHERE class_id > 6`);
+        db.run(`DELETE FROM grades WHERE student_id NOT IN (SELECT id FROM students)`);
+        db.run(`DELETE FROM grades WHERE subject_id NOT IN (SELECT id FROM subjects)`);
+        db.run(`DELETE FROM grades WHERE task_id IS NOT NULL AND task_id NOT IN (SELECT id FROM tasks)`);
 
         // Insert mata pelajaran per kelas dengan unique constraint
         // Kelas 1-3 (sama)
