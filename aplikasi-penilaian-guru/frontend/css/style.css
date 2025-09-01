@@ -1906,7 +1906,7 @@ input.invalid, select.invalid, textarea.invalid {
 
 /* Modal Styles */
 .modal {
-    display: none;
+    display: none !important;
     position: fixed;
     top: 0;
     left: 0;
@@ -1916,10 +1916,17 @@ input.invalid, select.invalid, textarea.invalid {
     z-index: 1000;
     opacity: 0;
     transition: opacity 0.3s ease;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal[style*="flex"] {
+    display: flex !important;
+    opacity: 1;
 }
 
 .modal.show {
-    display: flex;
+    display: flex !important;
     align-items: center;
     justify-content: center;
     opacity: 1;
@@ -5122,4 +5129,351 @@ a:focus {
     .student-nis {
         font-size: 0.8rem;
     }
+}
+
+/* Admin Section Styles */
+.admin-section {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    text-align: center;
+}
+
+.btn-link {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    padding: 8px 16px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+}
+
+.btn-link:hover {
+    color: white;
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateY(-1px);
+}
+
+.btn-link.danger {
+    color: #ff6b6b;
+}
+
+.btn-link.danger:hover {
+    color: #ff5252;
+    background: rgba(255, 107, 107, 0.1);
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+}
+
+.btn-danger:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(255, 107, 107, 0.4);
+    background: linear-gradient(135deg, #ff5252 0%, #e53935 100%);
+}
+
+/* Warning Message Styles */
+.warning-message {
+    background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+    border: 2px solid #ffc107;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+.warning-message i {
+    color: #ff6b35;
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+}
+
+.warning-message h4 {
+    color: #856404;
+    margin-bottom: 15px;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.warning-message p {
+    color: #856404;
+    margin-bottom: 10px;
+    font-weight: 500;
+    line-height: 1.5;
+}
+
+.warning-message ul {
+    color: #856404;
+    margin: 15px 0;
+    padding-left: 20px;
+}
+
+.warning-message li {
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+.warning-message strong {
+    color: #721c24;
+    font-weight: 700;
+}
+
+/* Checkbox Container Styles */
+.checkbox-container {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    cursor: pointer;
+    line-height: 1.5;
+    color: #333;
+    font-weight: 500;
+}
+
+.checkbox-container input[type="checkbox"] {
+    display: none;
+}
+
+.checkmark {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.checkbox-container input[type="checkbox"]:checked + .checkmark {
+    background: #667eea;
+    border-color: #667eea;
+    color: white;
+}
+
+.checkbox-container input[type="checkbox"]:checked + .checkmark::after {
+    content: '✓';
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.checkbox-container:hover .checkmark {
+    border-color: #667eea;
+}
+
+/* Enhanced Modal Styles for Delete All */
+#deleteAllAccountsModal .modal-content {
+    max-width: 600px;
+    width: 95%;
+}
+
+#deleteAllAccountsModal .modal-header {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+    color: white;
+}
+
+#deleteAllAccountsModal .modal-header h3 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#deleteAllAccountsModal .modal-body {
+    padding: 30px;
+}
+
+#deleteAllAccountsModal .form-group {
+    margin-bottom: 20px;
+}
+
+#deleteAllAccountsModal .form-help {
+    color: #6c757d;
+    font-size: 0.85rem;
+    font-style: italic;
+    margin-top: 5px;
+}
+
+/* Responsive adjustments for admin section */
+@media (max-width: 768px) {
+    .admin-section {
+        margin-top: 15px;
+        padding-top: 15px;
+    }
+    
+    .btn-link {
+        font-size: 0.85rem;
+        padding: 10px 12px;
+    }
+    
+    .warning-message {
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+    
+    .warning-message h4 {
+        font-size: 1rem;
+    }
+    
+    .warning-message p {
+        font-size: 0.9rem;
+    }
+    
+    #deleteAllAccountsModal .modal-content {
+        width: 98%;
+        margin: 10px;
+    }
+    
+    #deleteAllAccountsModal .modal-body {
+        padding: 20px;
+    }
+    
+    .users-list-container {
+        max-height: 150px;
+        overflow-y: auto;
+    }
+    
+    .user-item {
+        padding: 8px 12px;
+        margin-bottom: 4px;
+    }
+    
+    .user-item .username {
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    
+    .user-item .name,
+    .user-item .class {
+        font-size: 0.8rem;
+    }
+}
+
+/* Users List Styling for Delete All Accounts Modal */
+.users-section {
+    margin-bottom: 24px;
+    padding: 16px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #007bff;
+}
+
+.users-section h4 {
+    color: #495057;
+    margin-bottom: 12px;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.users-list-container {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    background: white;
+}
+
+.users-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.user-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e9ecef;
+    transition: background-color 0.2s;
+}
+
+.user-item:hover {
+    background-color: #f8f9fa;
+}
+
+.user-item:last-child {
+    border-bottom: none;
+}
+
+.user-item i {
+    color: #6c757d;
+    width: 16px;
+    text-align: center;
+}
+
+.user-item .username {
+    font-weight: 600;
+    color: #495057;
+    min-width: 100px;
+}
+
+.user-item .name {
+    color: #6c757d;
+    flex: 1;
+}
+
+.user-item .class {
+    color: #007bff;
+    font-weight: 500;
+    font-size: 0.9rem;
+    background: #e3f2fd;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.no-users {
+    padding: 20px;
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+}
+
+/* Enhanced modal styling for better visibility */
+#deleteAllAccountsModal .modal-content {
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+#deleteAllAccountsModal .warning-message {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-left: 4px solid #ffc107;
+    padding: 16px;
+    margin: 16px 0;
+    border-radius: 6px;
+}
+
+#deleteAllAccountsModal .warning-message h4 {
+    color: #856404;
+    margin-bottom: 8px;
+}
+
+#deleteAllAccountsModal .warning-message p {
+    color: #856404;
+    margin-bottom: 8px;
+}
+
+#deleteAllAccountsModal .warning-message ul {
+    color: #856404;
+    margin-left: 20px;
+    margin-bottom: 8px;
+}
+
+#deleteAllAccountsModal .warning-message strong {
+    color: #721c24;
 }

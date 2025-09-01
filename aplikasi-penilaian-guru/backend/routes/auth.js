@@ -140,6 +140,68 @@ router.get('/classes', (req, res) => {
         });
 });
 
+// Get all registered users (for admin purposes)
+router.get('/all-users', async (req, res) => {
+    try {
+        db.all('SELECT id, username, name, class_id FROM users ORDER BY username', (err, users) => {
+            if (err) {
+                return res.status(500).json({ error: 'Database error' });
+            }
+            res.json(users);
+        });
+    } catch (error) {
+        console.error('Get all users error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Delete ALL accounts and reset database (ADMIN ONLY)
+router.post('/delete-all-accounts', async (req, res) => {
+    try {
+        const { adminPassword } = req.body;
+        
+        // Check admin password
+        const expectedPassword = process.env.ADMIN_PASSWORD || 'admin123';
+        if (adminPassword !== expectedPassword) {
+            return res.status(401).json({ error: 'Invalid admin password' });
+        }
+
+        // Start transaction to delete all data
+        db.serialize(() => {
+            db.run('BEGIN TRANSACTION');
+
+            try {
+                // Delete all data in proper order (to avoid foreign key constraints)
+                db.run('DELETE FROM grades');
+                db.run('DELETE FROM tasks');
+                db.run('DELETE FROM subjects WHERE is_custom = 1'); // Keep default subjects
+                db.run('DELETE FROM students');
+                db.run('DELETE FROM user_preferences');
+                db.run('DELETE FROM sessions');
+                db.run('DELETE FROM users');
+                
+                // Reset sequences
+                db.run('DELETE FROM sqlite_sequence WHERE name IN ("users", "students", "tasks", "grades", "user_preferences", "sessions")');
+
+                db.run('COMMIT', (err) => {
+                    if (err) {
+                        db.run('ROLLBACK');
+                        return res.status(500).json({ error: 'Failed to delete all accounts' });
+                    }
+                    res.json({ message: 'All accounts and data deleted successfully' });
+                });
+
+            } catch (error) {
+                db.run('ROLLBACK');
+                res.status(500).json({ error: 'Failed to delete all accounts and data' });
+            }
+        });
+    } catch (error) {
+        console.error('Delete all accounts error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // Delete account and all associated data
 router.delete('/delete-account', authenticateToken, async (req, res) => {
     try {
@@ -217,6 +279,110 @@ router.delete('/delete-account', authenticateToken, async (req, res) => {
         });
     } catch (error) {
         console.error('Delete account error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Delete all accounts (Admin function)
+router.post('/delete-all-accounts', async (req, res) => {
+    try {
+        const { confirmationPassword } = req.body;
+
+        // Simple password protection for this dangerous operation
+        const ADMIN_PASSWORD = process.env.ADMIN_DELETE_PASSWORD || 'DELETE_ALL_ACCOUNTS_2025';
+        
+        if (!confirmationPassword) {
+            return res.status(400).json({ error: 'Password konfirmasi diperlukan' });
+        }
+
+        if (confirmationPassword !== ADMIN_PASSWORD) {
+            return res.status(401).json({ error: 'Password konfirmasi salah' });
+        }
+
+        // Start transaction to delete all data
+        db.serialize(() => {
+            db.run('BEGIN TRANSACTION');
+
+            try {
+                // Delete all data in correct order (respecting foreign key constraints)
+                db.run('DELETE FROM grades', (err) => {
+                    if (err) {
+                        console.error('Error deleting grades:', err);
+                        db.run('ROLLBACK');
+                        return res.status(500).json({ error: 'Gagal menghapus data nilai' });
+                    }
+
+                    db.run('DELETE FROM tasks', (err) => {
+                        if (err) {
+                            console.error('Error deleting tasks:', err);
+                            db.run('ROLLBACK');
+                            return res.status(500).json({ error: 'Gagal menghapus data tugas' });
+                        }
+
+                        db.run('DELETE FROM students', (err) => {
+                            if (err) {
+                                console.error('Error deleting students:', err);
+                                db.run('ROLLBACK');
+                                return res.status(500).json({ error: 'Gagal menghapus data siswa' });
+                            }
+
+                            db.run('DELETE FROM subjects WHERE is_custom = 1', (err) => {
+                                if (err) {
+                                    console.error('Error deleting custom subjects:', err);
+                                    db.run('ROLLBACK');
+                                    return res.status(500).json({ error: 'Gagal menghapus mata pelajaran custom' });
+                                }
+
+                                db.run('DELETE FROM user_preferences', (err) => {
+                                    if (err) {
+                                        console.error('Error deleting user preferences:', err);
+                                        db.run('ROLLBACK');
+                                        return res.status(500).json({ error: 'Gagal menghapus preferensi user' });
+                                    }
+
+                                    db.run('DELETE FROM sessions', (err) => {
+                                        if (err) {
+                                            console.error('Error deleting sessions:', err);
+                                            db.run('ROLLBACK');
+                                            return res.status(500).json({ error: 'Gagal menghapus sesi' });
+                                        }
+
+                                        db.run('DELETE FROM users', function(err) {
+                                            if (err) {
+                                                console.error('Error deleting users:', err);
+                                                db.run('ROLLBACK');
+                                                return res.status(500).json({ error: 'Gagal menghapus akun pengguna' });
+                                            }
+
+                                            // Reset auto increment counters
+                                            db.run('DELETE FROM sqlite_sequence WHERE name IN ("users", "students", "tasks", "grades", "sessions", "user_preferences")', (err) => {
+                                                if (err) {
+                                                    console.warn('Warning: Could not reset auto increment counters:', err);
+                                                }
+
+                                                db.run('COMMIT');
+                                                console.log('All user accounts and associated data deleted successfully');
+                                                res.json({ 
+                                                    message: 'Semua akun dan data terkait berhasil dihapus',
+                                                    deletedAccounts: this.changes || 0
+                                                });
+                                            });
+                                        });
+                                    });
+                                });
+                            });
+                        });
+                    });
+                });
+
+            } catch (error) {
+                console.error('Delete all accounts error:', error);
+                db.run('ROLLBACK');
+                res.status(500).json({ error: 'Terjadi kesalahan saat menghapus data' });
+            }
+        });
+    } catch (error) {
+        console.error('Delete all accounts error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });

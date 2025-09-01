@@ -123,6 +123,21 @@ function initializeDatabase() {
             (5, 'Kelas 5', 'Kelas 5 SD'),
             (6, 'Kelas 6', 'Kelas 6 SD')`);
 
+        // Pastikan semua kelas 1-6 ada
+        const requiredClasses = [
+            {id: 1, name: 'Kelas 1', description: 'Kelas 1 SD'},
+            {id: 2, name: 'Kelas 2', description: 'Kelas 2 SD'},
+            {id: 3, name: 'Kelas 3', description: 'Kelas 3 SD'},
+            {id: 4, name: 'Kelas 4', description: 'Kelas 4 SD'},
+            {id: 5, name: 'Kelas 5', description: 'Kelas 5 SD'},
+            {id: 6, name: 'Kelas 6', description: 'Kelas 6 SD'}
+        ];
+
+        requiredClasses.forEach(classData => {
+            db.run(`INSERT OR REPLACE INTO classes (id, name, description) VALUES (?, ?, ?)`,
+                [classData.id, classData.name, classData.description]);
+        });
+
         // Hapus kelas tambahan jika ada
         db.run(`DELETE FROM classes WHERE id > 6`);
         db.run(`DELETE FROM students WHERE class_id > 6`);

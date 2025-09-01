@@ -69,6 +69,13 @@
                         <i class="fas fa-sign-in-alt"></i> Masuk
                     </button>
                 </form>
+                
+                <!-- Admin Delete All Accounts -->
+                <div class="admin-section">
+                    <button type="button" class="btn-link danger" onclick="showDeleteAllAccountsModal()">
+                        <i class="fas fa-trash-alt"></i> Hapus Semua Data Akun
+                    </button>
+                </div>
             </div>
 
             <!-- Register Form -->
@@ -846,6 +853,64 @@
                     </button>
                     <button type="submit" class="btn btn-danger">
                         <i class="fas fa-trash-alt"></i> Hapus Akun Permanen
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete All Accounts Modal -->
+    <div id="deleteAllAccountsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-exclamation-triangle"></i> Hapus Semua Data Akun</h3>
+                <button class="modal-close" onclick="closeModal('deleteAllAccountsModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="deleteAllAccountsForm" onsubmit="handleDeleteAllAccounts(event)">
+                <div class="modal-body">
+                    <!-- Users List Section -->
+                    <div class="users-section">
+                        <h4><i class="fas fa-users"></i> Akun Yang Terdaftar:</h4>
+                        <div class="users-list-container">
+                            <ul id="usersList" class="users-list">
+                                <li>Memuat data...</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="warning-message">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h4>PERINGATAN: Tindakan Tidak Dapat Dibatalkan!</h4>
+                        <p>Anda akan menghapus <strong>SEMUA</strong> data yang ada di sistem:</p>
+                        <ul>
+                            <li>Semua akun guru yang terdaftar</li>
+                            <li>Semua data siswa</li>
+                            <li>Semua mata pelajaran custom</li>
+                            <li>Semua tugas dan penilaian</li>
+                            <li>Semua laporan dan data lainnya</li>
+                        </ul>
+                        <p><strong>Data yang dihapus tidak dapat dikembalikan!</strong></p>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="adminPassword">Masukkan Password Admin:</label>
+                        <input type="password" 
+                               id="adminPassword" 
+                               placeholder="Masukkan password admin" 
+                               required>
+                        <small class="form-help">
+                            Password default: admin123 (dapat diubah melalui environment variable)
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" onclick="closeModal('deleteAllAccountsModal')" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Batal
+                    </button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash-alt"></i> Hapus Semua Data
                     </button>
                 </div>
             </form>

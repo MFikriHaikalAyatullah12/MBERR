@@ -3483,8 +3483,13 @@ function showModal(modalId) {
 
 function closeModal(modalId) {
     const modal = document.getElementById(modalId);
-    modal.classList.remove('show');
-    setTimeout(() => modal.style.display = 'none', 300);
+    if (modal) {
+        modal.classList.remove('show');
+        setTimeout(() => {
+            modal.style.display = 'none';
+            document.body.style.overflow = '';
+        }, 300);
+    }
 }
 
 function showLoading() {
@@ -4098,4 +4103,154 @@ window.addEventListener('resize', function() {
 document.addEventListener('DOMContentLoaded', function() {
     // Add a small delay to ensure DOM is fully loaded
     setTimeout(initializeSidebar, 100);
+    
+    // Add event listener for delete all accounts button
+    const deleteAllBtn = document.getElementById('deleteAllAccountsBtn');
+    if (deleteAllBtn) {
+        console.log('Delete All Accounts button found, adding event listener');
+        deleteAllBtn.addEventListener('click', function() {
+            console.log('Delete All Accounts button clicked');
+            showDeleteAllAccountsModal();
+        });
+    } else {
+        console.log('Delete All Accounts button not found');
+    }
 });
+
+// Delete All Accounts Functions
+function showDeleteAllAccountsModal() {
+    console.log('showDeleteAllAccountsModal called');
+    
+    // Show modal immediately first
+    const modal = document.getElementById('deleteAllAccountsModal');
+    console.log('Modal element:', modal);
+    
+    if (modal) {
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        console.log('Modal should be visible now');
+        
+        // Reset form
+        const passwordInput = document.getElementById('adminPassword');
+        if (passwordInput) passwordInput.value = '';
+        
+        // Then fetch users list
+        fetchAndDisplayUsers();
+    } else {
+        console.error('Modal deleteAllAccountsModal not found');
+        alert('Error: Modal tidak ditemukan');
+    }
+}
+
+async function fetchAndDisplayUsers() {
+    try {
+        console.log('Fetching users...');
+        const response = await fetch(`${API_BASE}/auth/all-users`);
+        let usersList = [];
+        
+        if (response.ok) {
+            usersList = await response.json();
+            console.log('Users fetched:', usersList);
+        } else {
+            console.warn('Failed to fetch users list');
+        }
+
+        // Update the users list in modal
+        const usersListElement = document.getElementById('usersList');
+        if (usersListElement) {
+            if (usersList.length === 0) {
+                usersListElement.innerHTML = '<li class="no-users">Tidak ada akun yang terdaftar</li>';
+            } else {
+                usersListElement.innerHTML = usersList.map(user => 
+                    `<li class="user-item">
+                        <i class="fas fa-user"></i>
+                        <span class="username">${user.username}</span>
+                        <span class="name">${user.name}</span>
+                        <span class="class">Kelas ${user.class_id}</span>
+                    </li>`
+                ).join('');
+            }
+        }
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        const usersListElement = document.getElementById('usersList');
+        if (usersListElement) {
+            usersListElement.innerHTML = '<li class="no-users">Gagal memuat data pengguna</li>';
+        }
+    }
+}
+
+async function handleDeleteAllAccounts(event) {
+    event.preventDefault();
+    
+    const adminPassword = document.getElementById('adminPassword').value;
+    
+    if (!adminPassword) {
+        showNotification('Password admin harus diisi', 'error');
+        return;
+    }
+    
+    // Show additional confirmation
+    if (!confirm('PERINGATAN TERAKHIR!\n\nAnda akan menghapus SEMUA data dalam sistem.\nTindakan ini TIDAK DAPAT DIBATALKAN!\n\nApakah Anda yakin ingin melanjutkan?')) {
+        return;
+    }
+    
+    try {
+        showNotification('Menghapus semua data...', 'info');
+        
+        const response = await fetch(`${API_BASE}/auth/delete-all-accounts`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                adminPassword: adminPassword
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            // Close modal
+            closeModal('deleteAllAccountsModal');
+            
+            // Clear any stored session data
+            clearSession();
+            
+            // Show success message
+            showNotification('Semua data akun berhasil dihapus!', 'success');
+            
+            // Auto refresh page after 2 seconds
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+            
+        } else {
+            showNotification(data.error || 'Gagal menghapus data akun', 'error');
+        }
+        
+    } catch (error) {
+        console.error('Delete all accounts error:', error);
+        showNotification('Terjadi kesalahan saat menghapus data akun', 'error');
+    }
+}
+
+// Helper function to clear session data
+function clearSession() {
+    // Clear localStorage
+    localStorage.removeItem('token');
+    localStorage.removeItem(SESSION_KEY);
+    
+    // Clear memory cache
+    Object.keys(appCache).forEach(key => {
+        appCache[key] = { data: null, timestamp: null };
+    });
+    
+    // Reset global variables
+    currentUser = null;
+    token = null;
+    students = [];
+    subjects = [];
+    tasks = [];
+    grades = [];
+}
